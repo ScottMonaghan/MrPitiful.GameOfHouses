@@ -1,0 +1,273 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <title>tiles</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no"/>
+      <script src="https://code.jquery.com/jquery-3.1.1.min.js"
+              integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+              crossorigin="anonymous"></script>
+      <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+              integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+              crossorigin="anonymous"></script>
+
+      <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" />
+      <!-- Latest compiled and minified CSS -->
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+      <!-- Optional theme -->
+      <!--<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">-->
+
+      <!-- Latest compiled and minified JavaScript -->
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+      <!--leaflet-->
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.2/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.0.2/dist/leaflet.js"></script>
+      <!-- google fonts -->
+      <link href="https://fonts.googleapis.com/css?family=Roboto:400,700,900" rel="stylesheet">
+    <script>
+        $(document).ready(function () {
+            $('#content_panel').resizable({
+                handles: 'e',
+            });
+        });
+
+      var layer;
+      var westCoast = 7.0;
+      var southCoast = -133.0;
+      var northCoast = -12.0;
+      var eastCoast = 48.0;
+      var GRID_WIDTH = 5;
+      var GRID_HEIGHT = 26;
+      
+      function init() {
+        var mapMinZoom = 4;
+        var mapMaxZoom = 5;
+        var mapBounds = [[-140, 0], [0, 58]];
+        var map = L.map('map', {
+          maxZoom: mapMaxZoom,
+          minZoom: mapMinZoom,
+          crs: L.CRS.Simple,
+          maxBoundsViscosity: 0.8,
+          maxBounds: mapBounds
+        }).setView([0, 0], mapMaxZoom);
+        
+        //var mapBounds = new L.LatLngBounds(
+        //    map.unproject([0, 9216], mapMaxZoom),
+        //    map.unproject([3840, 0], mapMaxZoom));
+            
+        map.fitBounds(mapBounds);
+        layer = L.tileLayer('{z}/{x}/{y}.png', {
+          minZoom: mapMinZoom, maxZoom: mapMaxZoom,
+          bounds: mapBounds,
+          attribution: 'Rendered with <a href="http://www.maptiler.com/">MapTiler</a>',
+          noWrap: false,
+          tms: false
+        }).addTo(map);
+        //L.rectangle([[southCoast,westCoast],[northCoast,eastCoast]], { color: "#ff7800", weight: 1 }).addTo(map);
+        //createGrid();
+        var mapWidth = Math.abs(eastCoast - westCoast);
+        var mapHeight = Math.abs(southCoast - northCoast);
+        var gridItemWidth = mapWidth / GRID_WIDTH;
+        var gridItemHeight = mapHeight / GRID_HEIGHT;
+        var crestNumber = 0;
+        for (var y = 1; y <= GRID_HEIGHT; y++) {
+            for (var x = 1; x <= GRID_WIDTH; x++) {
+                var northBorder = northCoast + ((y - 1) * gridItemHeight * -1);
+                var eastBorder = westCoast + ((x) * gridItemWidth);
+                var southBorder = northCoast + (y * gridItemHeight * -1);
+                var westBorder = westCoast + ((x - 1) * gridItemWidth);
+                var bounds = [
+                    [
+                        southBorder,
+                        westBorder
+                    ],
+                    [
+                        northBorder,
+                        eastBorder
+                    ]
+                ];
+                L.rectangle(
+                    bounds, {
+                        color: "#fff",
+                        weight: 1,
+                        fillOpacity: 0,
+                        stroke: false,
+                        className: 'gridItem'
+                    }).addTo(map);
+                var str = "" + crestNumber;
+                var pad = "0000"
+                var ans = pad.substring(0, pad.length - str.length) + str
+
+                var divIcon = L.divIcon(
+                    {
+                        className: 'lordshipDivIcon',
+                        html:
+                        '<img src="../crests/' + ans + '.png"/>'
+                        + '<label>Lordship Name</label>',
+                        iconSize: [100,50]
+                    }
+                    );
+                var marker = L.marker(
+                    [northBorder + (gridItemHeight / 2 * -1), westBorder + gridItemWidth / 2],
+                    {
+                        icon:divIcon
+                        //icon: L.icon({ iconUrl: '../crests/' + ans + '.png', iconSize: [37,45] })
+                    })
+                    .addTo(map);
+                marker.bindPopup("<b>This</b> is popup.<br/><img src='https://pbs.twimg.com/profile_images/791370004969259013/dy3_mOj6.jpg' height=50/>");
+                crestNumber++;
+            }
+        }
+        function onMapClick(e) {
+            alert("You clicked the map at " + e.latlng);
+        }
+        map.on('click', onMapClick);
+      }
+    </script>
+    <style>
+      html, body, #map { width:100%; height:100%; margin:0; padding:0; z-index: 1; /*font-family: 'Roboto', sans-serif;*/}
+      #slider{ position: absolute; top: 10px; right: 10px; z-index: 5; }
+      .gridItem {
+          transition:all 0.5s;
+      }
+      .gridItem:hover {
+          fill-opacity:0.5;
+      }
+      .lordshipDivIcon {
+          font-size:12px;
+          font-weight:700;
+          width:200px;
+          height:100px;
+          text-align:center;
+          color:#fff;
+          text-shadow: 0 0 3px rgba(0,0,0,1),0 0 3px rgba(0,0,0,1),0 0 3px rgba(0,0,0,1),0 0 3px rgba(0,0,0,1);
+      }
+      .lordshipDivIcon img {
+          display:block;
+          height:45px;
+          margin-left:auto;
+          margin-right:auto;
+      }
+        .lordshipDivIcon label {
+            transition: all 0.5s;
+            opacity:0;
+        }
+        .lordshipDivIcon:hover label {
+            opacity:1;
+        }
+        #content_wrapper{
+            height:100vh;
+            width:100vw;
+            overflow:hidden;
+        }
+        #content {
+            height:100%;
+            width:200%;
+        }
+        #content_panel{
+            width:calc(100vw - 930px);
+        }
+        #map_panel{
+            width:50%;
+        }
+        #map {
+            position: absolute;
+            bottom: 0;
+            top: 0;
+            width: 930px;
+        }
+        .ui_panel {
+            position:relative;
+            float: left;
+            height: 100%;
+            /*border-width: 0 5px 0 0;
+  border-style: solid;
+  -webkit-border-image: 
+    -webkit-gradient(linear, 100% 0, 0 0, from(rgba(0, 0, 0, 1)), to(rgba(84, 84, 84, 0.8))) 1 100%;
+  -webkit-border-image: 
+    -webkit-linear-gradient(left, rgba(0, 0, 0, 1), rgba(84, 84, 84, 0.8)) 1 100%;
+  -moz-border-image:
+    -moz-linear-gradient(left, rgba(0, 0, 0, 1), rgba(84, 84, 84, 0.8)) 1 100%;  
+  -o-border-image:
+    -o-linear-gradient(left, rgba(0, 0, 0, 1), rgba(84, 84, 84, 0.8)) 1 100%;
+  border-image:
+      linear-gradient(to left, rgba(0, 0, 0, 1), rgba(84, 84, 84, 0.8)) 1 100%;
+                */
+        }
+    </style>
+  </head>
+  <body onload="init()">
+      <div id="content_wrapper">
+          <div id="content">
+              <div id="content_panel" class="ui_panel container-fluid">
+                  <div id="intro">                      
+                        <div class="panel panel-default">
+                            <div class="panel-body">
+                                <!-- Button trigger modal -->
+                                <button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#myModal">
+                                    Launch demo modal
+                                </button>
+
+                                <!-- Modal -->
+                                <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+                                    <div class="modal-dialog" role="document">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                                <h4 class="modal-title" id="myModalLabel">Modal title</h4>
+                                            </div>
+                                            <div class="modal-body">
+                                                ...
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                                                <button type="button" class="btn btn-primary">Save changes</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="intro_get_name" class="form-group">
+                                    <label for="player_name_input">What is your name?</label>
+                                    <input id="player_name_input" class="form-control" type="text" placeholder="Your First Name" />
+                                </div>
+                                <div id="intro_get_sex" class="form-group">
+                                    <label>Are you a man or a woman?</label>
+                                    <div class="radio">
+                                        <label>
+                                            <input id="player_sex_input_male" name="player_sex_input" type="radio" value="Male" />
+                                            Man
+                                        </label>
+                                    </div>
+                                    <div class="radio">
+                                        <label>
+                                            <input id="player_sex_input_female" name="player_sex_input" type="radio" value="Female" />
+                                            Woman
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="intro_get_house_name">
+                                    <p>
+                                        <span>Eddard</span>, you are the <span>LORD OR LADY</span> of an ancient storied noble house.  The blood of kings and queens -- and according to legend, the gods themselves -- runs in your veins.
+                                    </p>
+                                    <p>
+                                        Your noble line runs unbroken to the first of men and is filled with Lords and Ladies both great and terrible.
+                                    </p>
+                                    <div class="form-group">
+                                        <label for="player_house_input">What is your name?</label>
+                                        <input id="player_house_input" class="form-control" type="text" placeholder="Your Last Name" />
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>    
+                  </div>
+              </div>
+              <div id="map_panel" class="ui_panel">
+                  <div id="map"></div>
+                  <!--<input id="slider" type="range" min="0" max="1" step="0.1" value="1" oninput="layer.setOpacity(this.value)">-->
+              </div>
+          </div>
+      </div>
+        </body>
+</html>

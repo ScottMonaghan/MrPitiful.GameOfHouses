@@ -1,0 +1,690 @@
+﻿@{
+    ViewBag.Title = "Home Page";
+}
+<script>
+    var ApplicationViewModel = {};
+    var introPlayer;
+    $(document).ready(function () {
+        $.get('/api/intro', function (data) { introPlayer = data;});
+        $('#IntroModal').modal({
+            backdrop: 'static',
+            keyboard:false
+        })
+        ko.applyBindings(ApplicationViewModel);
+        function clearSelectedItems() {
+            ApplicationViewModel.MainUI.LordshipMenu.SelectedLordship(null);
+            ApplicationViewModel.MainUI.HouseMenu.SelectedHouse(null);
+            ApplicationViewModel.MainUI.PersonMenu.SelectedPerson(null);
+
+        }
+        Sammy(function () {
+            sammy = this;
+            this.get('#/person/:personId', function () {
+                clearSelectedItems();
+                $.get('/api/person/GetPersonDetails/' + this.params.personId, ApplicationViewModel.MainUI.PersonMenu.SelectedPerson);
+            });
+            this.get('#/house/:houseId', function () {
+                clearSelectedItems();
+                $.get('/api/house/GetHouseDetails/' + this.params.houseId, ApplicationViewModel.MainUI.HouseMenu.SelectedHouse);
+            });
+            this.get('#/lordship/:lordshipId', function () {
+                clearSelectedItems();
+                $.get('/api/lordship/GetLordshipDetails/' + this.params.lordshipId, ApplicationViewModel.MainUI.LordshipMenu.SelectedLordship);
+            });
+            this.get('', function () {
+                if (introPlayer) {
+                    clearSelectedItems();
+                    $.get('/api/house/GetHouseDetails/' + introPlayer.House.Id, ApplicationViewModel.MainUI.HouseMenu.SelectedHouse);
+                } else {
+                    //$.get('/api/intro/GetIntroPlayer/Eddard/Stark/1',
+                    //    function (data) {
+                    //        introPlayer = data
+                    //        clearSelectedItems();
+                    //        $.get('/api/house/GetHouseDetails/' + introPlayer.House.Id, ApplicationViewModel.MainUI.HouseMenu.SelectedHouse);
+                    //    });
+                }
+            });
+        }).run();
+    });
+</script>
+<div id="content_wrapper">
+<div id="MainUI">
+    <!--Main Content Styles-->
+    <style>
+        html, body, #map .container{
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            z-index: 1; /*font-family: 'Roboto', sans-serif;*/
+        }
+
+        #slider {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 5;
+        }
+
+        .gridItem {
+            transition: all 0.5s;
+        }
+
+            .gridItem:hover {
+                fill-opacity: 0.5;
+            }
+
+        .lordshipDivIcon {
+            font-size: 12px;
+            font-weight: 700;
+            width: 200px;
+            height: 100px;
+            text-align: center;
+            color: #fff;
+            text-shadow: 0 0 3px rgba(0,0,0,1),0 0 3px rgba(0,0,0,1),0 0 3px rgba(0,0,0,1),0 0 3px rgba(0,0,0,1);
+        }
+
+            .lordshipDivIcon img {
+                display: block;
+                height: 45px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .lordshipDivIcon label {
+                transition: all 0.5s;
+                opacity: 0;
+            }
+
+            .lordshipDivIcon:hover label {
+                opacity: 1;
+            }
+
+        #content_wrapper {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        #MainUI {
+            height: 100%;
+            width: 200%;
+        }
+
+        #content_panel {
+            width: calc(100vw - 930px);
+        }
+
+        #map_panel {
+            width: 50%;
+        }
+
+        #map {
+            position: absolute;
+            bottom: 0;
+            top: 0;
+            width: 930px;
+        }
+
+        .ui_panel {
+            position: relative;
+            float: left;
+            height: 100%;
+            overflow-y:scroll;
+            overflow-x:hidden;
+        }
+    </style>
+    <!-- Main Content Scripts-->
+    <script>
+        $(document).ready(function () {
+            GameOfHouses.MainUI.Init();
+            $('#content_panel').resizable({
+                handles: 'e',
+            });
+        });
+       
+        var GameOfHouses = GameOfHouses ? GameOfHouses : { };
+        GameOfHouses.MainUI = {
+            _this:this,
+            MapConstants: {
+                westCoast: 7.0,
+                southCoast: -133.0,
+                northCoast: -12.0,
+                eastCoast: 48.0,
+                GRID_WIDTH: 5,
+                GRID_HEIGHT: 26,
+                mapMinZoom: 4,
+                mapMaxZoom: 5,
+                mapBounds: [[-140, 0], [0, 58]]
+            },
+            Map: null,
+            Init: function () {
+                var westCoast = this.MapConstants.westCoast;
+                var southCoast = this.MapConstants.southCoast;
+                var northCoast = this.MapConstants.northCoast;
+                var northCoast = this.MapConstants.northCoast;
+                var eastCoast = this.MapConstants.eastCoast;
+                var GRID_WIDTH = this.MapConstants.GRID_WIDTH;
+                var GRID_HEIGHT = this.MapConstants.GRID_HEIGHT;
+                var mapMinZoom = this.MapConstants.mapMinZoom;
+                var mapMaxZoom = this.MapConstants.mapMaxZoom;
+                var mapBounds = this.MapConstants.mapBounds;
+                var layer;
+                var map = L.map('map', {
+                    maxZoom: mapMaxZoom,
+                    minZoom: mapMinZoom,
+                    crs: L.CRS.Simple,
+                    maxBoundsViscosity: 0.8,
+                    maxBounds: mapBounds
+                }).setView([0, 0], mapMaxZoom);
+                this.Map = map;
+                //var mapBounds = new L.LatLngBounds(
+                //    map.unproject([0, 9216], mapMaxZoom),
+                //    map.unproject([3840, 0], mapMaxZoom));
+
+                map.fitBounds(mapBounds);
+                layer = L.tileLayer('/Content/Map/tiles/{z}/{x}/{y}.png', {
+                    minZoom: mapMinZoom, maxZoom: mapMaxZoom,
+                    bounds: mapBounds,
+                    attribution: 'Rendered with <a href="http://www.maptiler.com/">MapTiler</a>',
+                    noWrap: false,
+                    tms: false
+                }).addTo(map);
+                //L.rectangle([[southCoast,westCoast],[northCoast,eastCoast]], { color: "#ff7800", weight: 1 }).addTo(map);
+                //createGrid();
+                var mapWidth = Math.abs(eastCoast - westCoast);
+                var mapHeight = Math.abs(southCoast - northCoast);
+                var gridItemWidth = mapWidth / GRID_WIDTH;
+                var gridItemHeight = mapHeight / GRID_HEIGHT;
+                //var crestNumber = 0;
+                for (var y = 1; y <= GRID_HEIGHT; y++) {
+                    for (var x = 1; x <= GRID_WIDTH; x++) {
+                        var northBorder = northCoast + ((y - 1) * gridItemHeight * -1);
+                        var eastBorder = westCoast + ((x) * gridItemWidth);
+                        var southBorder = northCoast + (y * gridItemHeight * -1);
+                        var westBorder = westCoast + ((x - 1) * gridItemWidth);
+                        var bounds = [
+                            [
+                                southBorder,
+                                westBorder
+                            ],
+                            [
+                                northBorder,
+                                eastBorder
+                            ]
+                        ];
+                        L.rectangle(
+                            bounds, {
+                                color: "#fff",
+                                weight: 1,
+                                fillOpacity: 0,
+                                stroke: false,
+                                className: 'gridItem'
+                            }).addTo(map);
+                        var crestNumber = (y-1)*GRID_WIDTH + (x-1)
+                        var str = "" + crestNumber;
+                        var pad = "0000"
+                        var ans = pad.substring(0, pad.length - str.length) + str
+
+                        var divIcon = L.divIcon(
+                            {
+                                className: 'lordshipDivIcon',
+                                html:
+                                '<img src="/Content/Map/crests/' + ans + '.png"/>'
+                                + '<label>Lordship Name</label>',
+                                iconSize: [100, 50]
+                            }
+                            );
+                        var marker = L.marker(
+                            [northBorder + (gridItemHeight / 2 * -1), westBorder + gridItemWidth / 2],
+                            {
+                                icon: divIcon
+                                //icon: L.icon({ iconUrl: '../crests/' + ans + '.png', iconSize: [37,45] })
+                            })
+                            .addTo(map);
+                        marker.bindPopup("<b>This</b> is popup.<br/><img src='https://pbs.twimg.com/profile_images/791370004969259013/dy3_mOj6.jpg' height=50/>");
+                        crestNumber++;
+                    }
+                }
+                function onMapClick(e) {
+                    alert("You clicked the map at " + e.latlng);
+                }
+                map.on('click', onMapClick);
+            }
+
+        }
+    </script>
+    <!--Main -->
+    <div id="content_panel" class="ui_panel container-fluid">
+        <div id="PersonMenu" data-bind="with: MainUI.PersonMenu.SelectedPerson">
+            <!-- lordship menu scripts -->
+            <script>
+                var GameOfHouses = GameOfHouses ? GameOfHouses : {};
+                GameOfHouses.MainUI = GameOfHouses.MainUI ? GameOfHouses.MainUI : {};
+                GameOfHouses.MainUI.PersonMenu = {
+                    ViewModel: new function () {
+                        this.SelectedPerson = ko.observable();
+                    }
+                }
+                ApplicationViewModel.MainUI = ApplicationViewModel.MainUI ? ApplicationViewModel.MainUI : {};
+                ApplicationViewModel.MainUI.PersonMenu = GameOfHouses.MainUI.PersonMenu.ViewModel;
+            </script>
+            <!-- Lordship Menu Styles -->
+            <style>
+                #PersonMenu .crest {
+                    height: 55px;
+                }
+            </style>
+            <h3>
+                <img class="crest" alt="crest" data-bind="attr:{src:'/Content/Map/crests/' + House.CrestNumber + '.png'}" />
+                <span data-bind="text: Name + ' ' + House.Name">Person</span>
+            </h3>
+            <ul>
+                <li><label>Name:</label> <span data-bind="html: FullNameAndAgeWithLinks"></span></li>
+                <li><label>House:</label> <a data-bind="attr:{href:'#/house/' + House.Id},html: House.Name"></a></li>          
+                <li><label>People:</label> <span data-bind="html: People"></span></li>
+                <li><label>Class:</label> <span data-bind="html: Class"></span></li>
+                <li>
+                    <label><a href="#Person_Lordships" data-toggle="collapse">Lordships</a>(<span data-bind="text:Lordships.length"></span>)</label>
+                    <ol class="collapse" id="Person_Lordships" data-bind="foreach: Lordships">
+                        <li><a data-bind="attr:{href:'#/lordship/' + Id}, text: Name"></a></li>
+                    </ol>
+                </li>
+                <li data-bind="with:Spouse, visible:Spouse"><label>Spouse:</label> <span data-bind="html:FullNameAndAgeWithLinks"></span></li>
+                <li data-bind="with:Betrothal, visible:Betrothal">
+                    <label>Betrothal</label> 
+                    <ul>
+                        <li><label>Betrothal Year:</label> <span data-bind="html: Year"></span></li>
+                        <li><label>Head of Household to Be:</label> <span data-bind="html: HeadOfHouseholdToBe.FullNameAndAgeWithLinks"></span></li>
+                        <li><label>Spouse:</label> <span data-bind="html: Spouse.FullNameAndAgeWithLinks"></span></li>
+                    </ul>
+                </li>
+                <li data-bind="with:Children, visible:Children">
+                    <label><a href="#Person_Children" data-toggle="collapse">Children</a>(<span data-bind="text:$data.length"></span>)</label>
+                    <ol class="collapse" id="Person_Children" data-bind="foreach: $data">
+                        <li data-bind="html: FullNameAndAgeWithLinks"></li>
+                    </ol>
+                </li>
+                <li data-bind="with:Household"><label>Household:</label> <span data-bind="html:HeadOfHousehold.FullNameAndAgeWithLinks"></span></li>                
+            </ul>
+        </div>
+        <div id="LordshipMenu" data-bind="with: MainUI.LordshipMenu.SelectedLordship">
+            <!-- lordship menu scripts -->
+            <script>
+                var GameOfHouses = GameOfHouses ? GameOfHouses : {};
+                GameOfHouses.LordshipDetailsDTO = function () {
+                    //public Guid Id
+                    this.Id = null;
+                    //public string Name
+                    this.Name = null;
+                    //public int FoundingYear
+                    this.FoundingYear = null;
+                    //public PersonDTO Lord
+                    this.Lord = null;
+                    //public List<PersonDTO> OrderOfSuccession
+                    this.OrderOfSuccession = null;
+                    //public int Army
+                    this.Army = null;
+                    //public List<LordshipDetailsDTO>
+                    this.OccupyingLordsAndArmies = null;
+                    //public int EligibleForConscription
+                    this.EligibleForConscription = null;
+                    //public LordshipDTO LocationOfLordAndArmy
+                    this.LocationOfLordAndArmy = null;
+                    //public int NobleHouseholds
+                    this.NobleHouseholds = null;
+                    //public int PeasantHouseholds
+                    this.PeasantHouseholds = null;
+                    //public int Defenders
+                    this.Defenders = null;
+                    //public int MapX { get; set; }
+                    this.MapX = null;
+                    //public int MapY { get; set; }
+                    this.MapY = null;
+                };
+                var GameOfHouses = GameOfHouses ? GameOfHouses : {};
+                GameOfHouses.MainUI = GameOfHouses.MainUI ? GameOfHouses.MainUI : {};
+                GameOfHouses.MainUI.LordshipMenu = {
+                    ViewModel: new function () {
+                        this.SelectedLordship = ko.observable();
+                    }
+                }
+                ApplicationViewModel.MainUI = ApplicationViewModel.MainUI ? ApplicationViewModel.MainUI : {};
+                ApplicationViewModel.MainUI.LordshipMenu = GameOfHouses.MainUI.LordshipMenu.ViewModel;
+            </script>
+            <!-- Lordship Menu Styles -->
+            <style>
+                #LordshipMenu .crest {
+                    height: 55px;
+                }
+            </style>
+            <h3>
+                <img class="crest" alt="crest" data-bind="attr:{src:'/Content/Map/crests/' + Lord.House.CrestNumber + '.png'}" />
+                <span data-bind="text: Name">Lordship</span>
+            </h3>
+            <ul>
+                <li><label>Founding Year: </label> <span data-bind="text: FoundingYear"></span></li>
+                <li><label>Lord: </label> <span data-bind="html: Lord.FullNameAndAgeWithLinks"></span></li>
+                <li>
+                    <label><a href="#Lordship_OrderOfSuccession" data-toggle="collapse">Order of Succession</a>(<span data-bind="text:OrderOfSuccession.length"></span>)</label> 
+                    <ol class="collapse" id = "Lordship_OrderOfSuccession" data-bind="foreach: OrderOfSuccession">
+                        <li data-bind="html:FullNameAndAgeWithLinks"></li>
+                    </ol>
+                </li>
+                <li><label>Army: </label> <span data-bind="text: Army"></span></li>
+                <li>
+                    <label><a href="#Lordship_OccupyingArmies" data-toggle="collapse">Occupying Armies</a>(<span data-bind="text:OccupyingLordsAndArmies.length"></span>)</label>
+                    <ul class="collapse" data-tabindex="foreach: OccupyingLordsAndArmies" id="Lordship_OccupyingArmies">
+                        <li><a href="" data-bind="attr:{href:'#/lordship/' + Id}"><span data-bind="text:Name">Name</span></a>(<span data-bind="text:Army">Count</span>)</li>
+                    </ul>
+                </li>
+                <li><label>Eligible for Conscription: </label> <span data-bind="text: EligibleForConscription"></span></li>
+                <li><label>Location of Lord and Army: </label> <a data-bind="attr:{href:'#/lordship/' + LocationOfLordAndArmy.Id}" href=""><span data-bind="text: LocationOfLordAndArmy.Name"></span></a></li>
+                <li><label>Noble Households: </label> <span data-bind="text: NobleHouseholds"></span></li>
+                <li><label>Peasant Households: </label> <span data-bind="text: PeasantHouseholds"></span></li>
+                <li><label>Defenders: </label> <span data-bind="text: Defenders"></span></li>
+                <li><label>Coordinates: </label> <span data-bind="text: '(' + MapX + ',' + MapY + ')'"></span></li>
+            </ul>
+        </div>
+        <div id="HouseMenu" data-bind="with: MainUI.HouseMenu.SelectedHouse">
+            <!-- house menu scripts -->
+            <script>
+                var GameOfHouses = GameOfHouses ? GameOfHouses : {};
+                GameOfHouses.HouseDetailsDTO = function () {
+                    /*
+                    public Guid Id { get; set; }
+                    public string CrestNumber { get; set; }
+                    public string Name { get; set; }
+                    public string Lord { get; set; }
+                    public string Allegience { get; set; }
+                    public List<LordshipDTO> Lordships { get; set; }
+                    public List<string> Vassles { get; set; }
+                    public List<string> OrderOfSuccession { get; set; }
+                    */
+                    this.Name = '';
+                    this.Id = '';
+                    this.CrestNumber = '';
+                    this.Lord = '';
+                    this.Allegience = '';
+                    this.Vassles = [];
+                    this.Lordships = [];
+                    this.OrderOfSuccession = [];
+                }
+                GameOfHouses.MainUI = GameOfHouses.MainUI ? GameOfHouses.MainUI : {};
+                GameOfHouses.MainUI.HouseMenu = {
+                    ViewModel: new function () {
+                        this.SelectedHouse = ko.observable();
+                    }
+                }
+                ApplicationViewModel.MainUI = ApplicationViewModel.MainUI ? ApplicationViewModel.MainUI : {};
+                ApplicationViewModel.MainUI.HouseMenu = GameOfHouses.MainUI.HouseMenu.ViewModel;
+            </script>
+            <!-- house menu styles-->
+            <style>
+                #HouseMenu .crest{
+                    height:55px;
+                }
+            </style>
+            <h3>
+                <img class ="crest" alt="crest" data-bind="attr:{src:'/Content/Map/crests/' + CrestNumber + '.png'}" />
+                House <span data-bind="text: Name">Stark</span>
+            </h3>
+
+            <ul>
+               <li><label>Lord:</label> <span data-bind="html: Lord">Stark</span></li>
+               <li><label>Allegience:</label> <span data-bind="html: Allegience">Stark</span></li>
+                <li>
+                    <label><a href="#House_Lordships" data-toggle="collapse">Lordships</a>(<span data-bind="text: Lordships.length"></span>)</label>
+                    <ul data-bind="foreach:Lordships" class="collapse" id="House_Lordships">
+                        <li><a data-bind="html:Name, attr:{href:'#/lordship/' + Id}" href="">Lordship Name</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <label><a href="#House_Vassles" data-toggle="collapse">Vassles</a>(<span data-bind="text: Vassles.length"></span>)</label>
+                    <ul data-bind="foreach:Vassles" class="collapse" id="#House_Vassles">
+                        <li data-bind="html:$data">Karstark</li>
+                    </ul>
+                </li>
+               <li><label><a href="#House_OrderOfSuccession" data-toggle="collapse">Order of Succession</a>(<span data-bind="text: OrderOfSuccession.length"></span>)</label>
+                    <ol data-bind="foreach:OrderOfSuccession" class="collapse" id="House_OrderOfSuccession">
+                        <li data-bind="html:$data">Robb Stark</li>
+                    </ol>
+               </li>
+           </ul>
+        </div>
+    </div>
+    <div id="map_panel" class="ui_panel">
+        <div id="map"></div>
+    </div>
+</div>
+</div>
+<!-- Intro Modal -->
+<div class="modal fade" id="IntroModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div id="Intro" class="row" data-bind="with: Intro">
+                    <script>
+                        //intro script
+                        //Enums
+                        var Sex = {
+                            Female: 0,
+                            Male: 1
+                        };
+                        var GameOfHouses = GameOfHouses ? GameOfHouses : { };
+                        GameOfHouses.Intro = {
+                            CurrentStep: 1,
+                            ShowNextStep: function (introViewModel) {
+                                //step 1 - get player name
+                                //step 2 - get player sex
+                                //step 3 - get player house
+                                //-- get full player info
+                                if (this.CurrentStep == 3 && this.ViewModel.PlayerName().length > 0 && this.ViewModel.PlayerHouse().length > 0 && this.ViewModel.PlayerSex() != null) {
+                                    $.get('/api/intro/GetIntroPlayer/' + this.ViewModel.PlayerName() + '/' + this.ViewModel.PlayerHouse() + '/' + this.ViewModel.PlayerSex(),
+                                        function (data) {
+                                            introPlayer = data;
+                                            GameOfHouses.Intro.ViewModel.PlayerFullNameAndAge(introPlayer.FullNameAndAge);
+                                            GameOfHouses.Intro.ViewModel.Father(introPlayer.Father.Name);
+                                            if (GameOfHouses.Intro.ViewModel.Heirs().length == 0) {
+                                                for (var i = 0; i < introPlayer.Heirs.length; i++) {
+                                                    GameOfHouses.Intro.ViewModel.Heirs.push(
+                                                        {
+                                                            Relation: introPlayer.Heirs[i].Relation,
+                                                            Name: ko.observable('')
+                                                        }
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    );
+                                }
+                                
+                                //step 4 - introduce player
+                                //step 5 - get player heirs
+                                //step 6 - display narrative
+                                if (this.CurrentStep == 5) {
+                                    $.get('/api/house/GetHouseDetails/' + introPlayer.House.Id, ApplicationViewModel.MainUI.HouseMenu.SelectedHouse);
+
+                                }
+                                this.CurrentStep++;
+                                $('.intro-step').removeClass('intro-current-step');
+                                $('.intro-step-' + this.CurrentStep).addClass('intro-current-step');
+                            },
+                            ShowPrevStep: function (introViewModel) {
+                                this.CurrentStep--;
+                                $('.intro-step').removeClass('intro-current-step');
+                                $('.intro-step-' + this.CurrentStep).addClass('intro-current-step');
+                            },
+                            ViewModel: new IntroViewModel()
+                        };
+                        function IntroViewModel() {
+                            this.PlayerName = ko.observable('');
+                            this.PlayerFullNameAndAge = ko.observable('');
+                            this.PlayerHouse = ko.observable('');
+                            this.PlayerSex = ko.observable(null);
+                            this.Heirs = ko.observableArray([]);
+                            this.Father = ko.observable('');
+                            this.AllHeirsHaveNames = ko.computed(function () {
+                                var retVal = true;
+                                for (i = 0; i < this.Heirs().length; i++) {
+                                    if (this.Heirs()[i].Name().length == 0) {
+                                        retVal = false;
+                                    }
+                                }
+                                return retVal;
+                            }, this);
+                        }
+                        ApplicationViewModel.Intro = GameOfHouses.Intro.ViewModel;
+
+                        $(document).ready(function () {
+                            $('.intro-next-button').click(function (e) {
+                                GameOfHouses.Intro.ShowNextStep();
+                            });
+                            $('.intro-back-button').click(function (e) {
+                                GameOfHouses.Intro.ShowPrevStep();
+                            });
+                            // Activates knockout.js
+                            //ko.applyBindings(GameOfHouses.Intro.ViewModel, document.getElementById('Intro'));
+                        });
+                    </script>
+                    <style>
+                        /*intro styles*/
+                        .intro-step {
+                            max-height: 0;
+                            opacity: 0;
+                            overflow: hidden;
+                            transition: all 0.5s;
+                            text-align: center;
+                        }
+
+                            .intro-step p {
+                                text-align: left;
+                            }
+
+                            .intro-step .intro-buttons {
+                                text-align: center;
+                            }
+
+                        .intro-current-step {
+                            opacity: 1;
+                            max-height: 2000px;
+                            transition: all 0.5s 0.5s;
+                        }
+                    </style>
+
+                    <div class="col-md-1"></div>
+                    <div class="col-md-10">
+                        <div id="intro_get_name" class="intro-step intro-step-1 intro-current-step">
+                            <h2 for="player_name_input">What is your name?</h2>
+                            <p>
+                                <input id="player_name_input" class="form-control" type="text" data-bind="textInput: PlayerName" placeholder="Your First Name" />
+                            </p>
+                            <p class="intro-buttons">
+                                <button class="btn btn-primary intro-next-button" data-bind="enable:PlayerName().length > 0" type="submit">Next</button>
+                            </p>
+                        </div>
+                        <div id="intro_get_sex" class="intro-step intro-step-2">
+                            <h2>Are you a man or a woman?</h2>
+                            <div class="radio">
+                                <label>
+                                    <input id="player_sex_input_male" name="player_sex_input" type="radio" value = "1" data-bind="checked: PlayerSex" />
+                                    I am a man.
+                                </label>
+                            </div>
+                            <div class="radio">
+                                <label>
+                                    <input id="player_sex_input_female" name="player_sex_input" type="radio" value="0" data-bind="checked: PlayerSex" />
+                                    I am a woman.
+                                </label>
+                            </div>
+                            <p class="intro-buttons">
+                                <button class="btn btn-primary intro-back-button">Back</button>
+                                <button class="btn btn-primary intro-next-button" data-bind="enable:PlayerSex != null" type="submit">Next</button>
+                            </p>
+                        </div>
+                        <div id="intro_get_house_name" class="intro-step intro-step-3">
+                            <h1>Hello <span data-bind="text: PlayerName">Eddard</span>.</h1>
+                            <p>
+                                <span data-bind="text: PlayerName">Eddard</span>, you are the
+                                <span data-bind="text: PlayerSex()==Sex.Male ? 'patriarch' : 'matriarch'">LORD OR LADY</span> of an ancient storied noble house.  
+                             </p>
+                            <p>
+                                   The blood of kings and queens &mdash; and according to legend, the gods themselves &mdash; courses through your veins.
+                            </p>
+                            <p>
+                                Your noble line runs unbroken to the first of men and is filled with Lords and Ladies both great and terrible.
+                            </p>
+                            <div class="form-group">
+                                <h2 for="player_house_input">What is the name of your house?</h2>
+                                <input id="player_house_input" class="form-control" type="text" placeholder="Your House Name" data-bind="textInput: PlayerHouse" />
+                            </div>
+                            <p class="intro-buttons">
+                                <button class="btn btn-primary intro-back-button">Back</button>
+                                <button class="btn btn-primary intro-next-button" data-bind="enable:PlayerHouse().length > 0">Next</button>
+                            </p>
+                        </div>
+                        <div id="intro_introduce_lord" class="intro-step intro-step-4">
+                            <h1>You are <span data-bind="text: PlayerName() + ' ' + PlayerHouse()">Eddard Stark</span>.</h1>
+                            <p>You are <span data-bind="text: PlayerFullNameAndAge">Eddard Stark, Lord of House Stark, Lord of Winterfell, residing in Winterfell, age 41</span>.</p>
+                            <p class="intro-buttons">
+                                <button class="btn btn-primary intro-back-button">Back</button>
+                                <button class="btn btn-primary intro-next-button">Next</button>
+                            </p>
+                        </div>
+                        <div id="intro_get_heirs" class="intro-step intro-step-5">
+                            <h1>You Have Heirs!</h1>
+                            <p>
+                                You have <span data-bind="text: Heirs().length">2</span> living heir<span data-bind="text: Heirs().length > 1 ? 's' : ''">s</span>:
+
+                                <span data-bind="foreach: Heirs"><span data-bind="if: $parent.Heirs().length > 1 && $index() == ($parent.Heirs().length - 1)"> and</span>
+                                    a <span data-bind="text: Relation">daughter</span><span data-bind="ifnot: $index() == ($parent.Heirs().length - 1)">,</span></span>.
+                                By tradition, you as <span data-bind="text: PlayerSex() == Sex.Male ? 'Lord' : 'Lady'">Lord OR LADY</span> of the house, name your heirs.
+                            </p>
+                            <!-- ko foreach: Heirs -->
+                            <div class="form-group">
+                                <h2>What is your <span data-bind="text: Relation">daughter</span>'s name?</h2>
+                                <input class="form-control" data-bind="textInput: Name" placeholder="Your Heir's Name" type="text" />
+                            </div>
+                            <!-- /ko -->
+                            <p class="intro-buttons">
+                                <button class="btn btn-primary intro-back-button">Back</button>
+                                <button class="btn btn-primary intro-next-button" data-bind="enable: AllHeirsHaveNames">Next</button>
+                            </p>
+                        </div>
+                        <div id="intro_get_heirs" class="intro-step intro-step-6">
+                            <h1>Save House <span data-bind="text: PlayerHouse">Stark</span>!</h1>
+                            
+                            <p>The great house of <span data-bind="text: PlayerHouse">Stark</span> has fallen on hard times.</p>
+                            
+                            <p>The rich soil that has provided bounty for uncounted generations of your people has turned rocky and fruitless.</p>
+                            
+                            <p>The surrounding land is racked with strife, banditry, and civil war. The sway that House <span data-bind="text: PlayerHouse">Stark</span> once held over lords and kings alike is a distant memory.</p>
+                            
+                            <p>Little remains of the once-great wealth of House <span data-bind="text: PlayerHouse">Stark</span> other than your family, the good men and women in your service &mdash; and your renouned, sturdy longships.</p>
+                            
+                            <p>Days ago, in a feverish state &mdash; lying in his death bed &mdash; your father stared wide-eyed as uninteligible words weakly sputtered from his dry, cracked lips.<p> 
+                            
+                            <p>He had been raving madly for days-on of a land of plenty to the south.</p>
+                            
+                            <p>
+                                As you knelt at the foot of his bed for his final hours, his eyes suddenly grew sharp and fixed on you with a steel-blue intensity that instantly
+                                transformed him from a pitiful wretch into the powerful man-god whose presence dominated your childhood heart with equal parts awe, love, and fear.
+                            </p>
+
+                            <p>One last time, <span data-bind="text: Father">Stark</span>, Lord and Patriarch of House <span data-bind="text: PlayerHouse">Stark</span>, filled the room with that oh-so-familiar baritone of command:</p>
+                            <blockquote>
+                            '<span data-bind="text: PlayerName().toUpperCase()">EDDARD</span>! GATHER OUR PEOPLE INTO OUR LONGSHIPS AND SAIL SOUTH TO SALVATION! IF YOU DO NOT DO THIS, ALL SHALL BE LOST AND HOUSE <span data-bind="text: PlayerHouse().toUpperCase()">Stark</span>, WILL BE NO MORE!'
+                            </blockquote>
+                            <p>Then collapsed into a fugue never spoke another word.</p>
+                            <p class="intro-buttons">
+                                <button class="btn btn-primary intro-back-button">Back</button>
+                                <button class="btn btn-primary" data-dismiss="modal">Next</button>
+                            </p>
+                        </div>
+                      </div>
+                    <div class="col-md-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
