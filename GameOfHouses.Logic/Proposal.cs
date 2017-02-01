@@ -55,7 +55,7 @@ namespace GameOfHouses.Logic
                 }
                 foreach (var person in RequestedPeople)
                 {
-                    Sender.Lord.Household.AddMember(person);
+Sender.Lord.Household.AddMember(person);
                     world.EligibleNobles.Remove(person);
                 }
                 var message =

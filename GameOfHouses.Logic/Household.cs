@@ -79,6 +79,7 @@ namespace GameOfHouses.Logic
             //create new house unless headOfHousehold is lord
             if (headOfHousehold.Class == SocialClass.Noble && headsOldHouse.Player != null && headOfHousehold != headsOldHouse.Lord)
             {
+
                 newHouse = new House() { Name = headOfHousehold.Name + headsOldHouse.Name.ToLower(), Symbol = headOfHousehold.Name[0] };
                 var game = headsOldHouse.Player.Game;
                 newHouse.AddMember(headOfHousehold);

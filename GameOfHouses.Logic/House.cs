@@ -53,7 +53,20 @@ namespace GameOfHouses.Logic
             Player = player;
             player.House = this;
         }
-        public Lordship Seat { get; set; }
+        public Lordship Seat
+        {
+            get
+            {
+                if (Lord != null && Lord.Household != null && Lord.Household.Lordship != null && Lord.Household.Lordship.Lord != null && Lord.Household.Lordship.Lord.House == this)
+                {
+                    return Lord.Household.Lordship;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+        }
         public List<Lordship> Lordships
         {
             get
@@ -309,6 +322,11 @@ namespace GameOfHouses.Logic
         {
             if (!Vassles.Contains(vassle))
             {
+                if (vassle.GetAllSubVassles().Contains(this))
+                {
+                    //prevent circular allegience
+                    this.Allegience.RemoveVassle(this);
+                }
                 if (vassle.Allegience != null)
                 {
                     vassle.Allegience.RemoveVassle(vassle);
@@ -317,6 +335,7 @@ namespace GameOfHouses.Logic
                 //send all vassle armies home
                 //vassle.Lordships.ForEach(l => l.AddOccupyingLordAndArmy(l));
                 vassle.Allegience = this;
+                
             }
         }
         public void RemoveVassle(House vassle)

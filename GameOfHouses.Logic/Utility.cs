@@ -268,7 +268,7 @@ namespace GameOfHouses.Logic
                 allegience.AddVassle(newHouse);
             }
             newWorld.AddHouse(lord.House);
-            lord.House.Seat = lordship;
+            //lord.House.Seat = lordship;
             var settlerHouseholds = new List<Household>();
             settlerHouseholds.AddRange(nobleHouseholds);
             settlerHouseholds.AddRange(peasantHouseholds);

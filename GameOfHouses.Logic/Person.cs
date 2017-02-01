@@ -120,17 +120,17 @@ namespace GameOfHouses.Logic
                             }
                         }
                     }
-                    foreach (var lordship in World.Lordships)
-                    {
-                        if (!lordship.Vacant)
-                        {
-                            var lordshipHeirs = lordship.GetOrderOfSuccession(1);
-                            if (lordshipHeirs.Contains(this))
-                            {
-                                fullNameAndAge += string.Format(", heir of {1}", lordshipHeirs.IndexOf(this) + 1, lordship.Name);
-                            }
-                        }
-                    }
+                    //foreach (var lordship in World.Lordships)
+                    //{
+                    //    if (!lordship.Vacant)
+                    //    {
+                    //        var lordshipHeirs = lordship.GetOrderOfSuccession(1);
+                    //        if (lordshipHeirs.Contains(this))
+                    //        {
+                    //            fullNameAndAge += string.Format(", heir of {1}", lordshipHeirs.IndexOf(this) + 1, lordship.Name);
+                    //        }
+                    //    }
+                    //}
                 }
                 if (this.Father != null && this.Mother != null)
                 {

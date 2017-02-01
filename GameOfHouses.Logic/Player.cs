@@ -70,7 +70,7 @@ namespace GameOfHouses.Logic
                     }
                 }
                 //now see if you have any heirs to betroth
-                var heirsLeftToBetroth = House.GetOrderOfSuccession(2).Where(heir=>heir.IsEligableForBetrothal() && heir.Household.Lordship.Lord.House == House).ToList();
+                var heirsLeftToBetroth = House.GetOrderOfSuccession(2).Where(heir => heir.IsEligableForBetrothal() && heir.Household.Lordship !=null && heir.Household.Lordship.Lord.House == House).ToList();
                 //first see if you have anyone compatible in your subjects
                 var remainingEligibleNobleSubjects = House.Lordships
                     .SelectMany(l => l.Households)
@@ -166,7 +166,7 @@ namespace GameOfHouses.Logic
                         ).ToList();
                         if (conquorableLordships.Count() > 0)
                         {
-                            var capitals = House.World.NobleHouses.Where(h => h.Allegience == null && h.Lordships.Count() > 0).Select(h => h.Lord.Household.Lordship).ToList();
+                            var capitals = House.World.NobleHouses.Where(h => h.Seat!=null && h.Allegience == null && h.Lordships.Count() > 0).Select(h => h.Seat).ToList();
                             var closestDistance = double.PositiveInfinity;
                             target = conquorableLordships[0];
 
@@ -347,10 +347,21 @@ namespace GameOfHouses.Logic
             Console.WriteLine(household.GetDetailsAsString());
             while (individualHouseholdCommand.ToLower() != "x")
             {
-                Console.WriteLine("Household [D]etails, [M]ember Details, [R]esettle, or E[x]it");
+                Console.WriteLine("Household [D]etails, [M]ember Details, [R]esettle, [K]ill, [A]ttainder, or E[x]it");
                 individualHouseholdCommand = Console.ReadLine();
                 switch (individualHouseholdCommand.ToLower())
                 {
+                    case "a":
+                        {
+                            foreach (var member in household.Members)
+                            {
+                                member.Class = SocialClass.Peasant;
+                                var message = "ATTAINDER: " + member.FullNameAndAge + " was ATTAINED, stripped of all titles and nobility, by " + member.Household.Lordship.Lord.House.Lord.FullNameAndAge + "\n";
+                                member.House.RecordHistory(message);
+                                member.Household.Lordship.Lord.House.RecordHistory(message);
+                                Console.Write(message);
+                            }
+                        }break;
                     case "d":
                         Console.WriteLine(household.GetDetailsAsString());
                         break;
@@ -379,7 +390,7 @@ namespace GameOfHouses.Logic
                         }
                         break;
                     case "r":
-                        var subjectHouse = household.HeadofHousehold.House;
+                        var subjectHouse = household.Lordship.Lord.House;
                         var lordshipSelectionCommand = "";
                         while (lordshipSelectionCommand.ToLower() != "x")
                         {
@@ -428,7 +439,10 @@ namespace GameOfHouses.Logic
         }
         public void ChangeLordshipLordMenu(Lordship lordship)
         {
-            var possibleLords = lordship.Lord.House.LordshipCandidates;
+            var possibleLords = lordship.Lord.House.Lordships
+                .SelectMany(l=>l.Households.Where(h=>h.HeadofHousehold.Class == SocialClass.Noble))
+                .SelectMany(h=>h.Members.Where(m=>m.Age >= Constants.AGE_OF_MAJORITY))
+                .ToList();
             //if (possibleLords.Count() > 0)
             //{
             Person newLord = null;
