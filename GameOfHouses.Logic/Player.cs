@@ -57,7 +57,7 @@ namespace GameOfHouses.Logic
                     p => p.Status = ProposalStatus.ResponseReceived
                 );
                 //accept all proposals
-                var incomingProposals = world.Proposals.Where(p => p.Receiver == House && p.Status == ProposalStatus.New);
+                var incomingProposals = world.Proposals.Where(p => p.Receiver == House && p.Status == ProposalStatus.New).ToList();
                 foreach(var proposal in incomingProposals)
                 {
                     //only people for now
@@ -98,6 +98,7 @@ namespace GameOfHouses.Logic
                 //now see what we can get on the market for any unmatched heirs
                 foreach(var heir in unmatchedHeirs)
                 {
+                    
                     if (remainingEligibleNobleSubjects.Count() > 0)
                     {
                         var possibleSpouses = world.EligibleNobles.Where(s =>
@@ -109,10 +110,15 @@ namespace GameOfHouses.Logic
 
                         if (possibleSpouses.Count() > 0)
                         {
-                            var proposedSpouse = possibleSpouses.Where(s => s.Age == possibleSpouses.Min(s2 => Math.Abs(s2.Age - heir.Age))).FirstOrDefault();
+                            Person proposedSpouse = null;
+                            possibleSpouses.Min(s2 => {
+                                proposedSpouse = s2;
+                                return Math.Abs(s2.Age - heir.Age);
+                            });
+                            //var proposedSpouse = possibleSpouses.Where(s => Math.Abs(s.Age - heir.Age) ==)).FirstOrDefault();
                             var nobleToTrade = remainingEligibleNobleSubjects[0];
                             remainingEligibleNobleSubjects.Remove(nobleToTrade);
-                            if (proposedSpouse != null && proposedSpouse.Household.Lordship.Lord !=null)
+                            if (proposedSpouse != null && proposedSpouse.Household.Lordship != null &&  proposedSpouse.Household.Lordship.Lord !=null)
                             {
                                 world.Proposals.Add(
                                     new Proposal()
@@ -1079,21 +1085,11 @@ namespace GameOfHouses.Logic
         {
             var player = this;
             var world = player.House.World;
+            var incomingProposals = world.Proposals.Where(p => p.Receiver == House && p.Status == ProposalStatus.New).ToList();
             Console.WriteLine("Year: " + world.Year);
-            //Console.WriteLine(player.House.Seat.GetMapOfKnownWorld());
-            //Console.WriteLine("Enter to continue. CTRL-C to quit.");
-            //var input = "hacky";
-            //while (input.ToLower() != "i")
-            //{
-                //Console.WriteLine("Enter house  name or [i]ncrement year");
-                //input = Console.ReadLine();
-                //var command = input.Split(' ');
-                //if (input.ToLower() != "i")
-                //{
-                    //var subjectHouse = world.NobleHouses.FirstOrDefault(h => h.Name.ToLower() == input.Trim().ToLower());
-                    var subjectHouse = player.House;
-                    if (subjectHouse != null)
-                    {
+            var subjectHouse = player.House;
+            if (subjectHouse != null)
+            {
                 if (subjectHouse.History.ContainsKey(world.Year - 1))
                 {
                     Console.WriteLine(world.Year);
@@ -1105,24 +1101,72 @@ namespace GameOfHouses.Logic
                     Console.Write(subjectHouse.History[world.Year]);
                 }
                 var houseCommand = "";
-                        while (houseCommand.ToLower() != "x")
-                        {
-                            Console.WriteLine("House " + subjectHouse.Name + " ("+ subjectHouse.FightersAvailable.Count() +" fighters): [H]istory, [D]etails, [S]ubjects, [M]ap, [L]ordships, [V]assles, E[x]it " + subjectHouse.Name);
-                            houseCommand = Console.ReadLine();
-                            switch (houseCommand.ToLower())
+                while (houseCommand.ToLower() != "x")
+                {
+                    Console.WriteLine("House " + subjectHouse.Name + " ("+ subjectHouse.FightersAvailable.Count() +" fighters): Incoming [P]roposals( "+ incomingProposals.Count()+" ) [H]istory, [D]etails, [S]ubjects, [M]ap, [L]ordships, [V]assles, E[x]it " + subjectHouse.Name);
+                    houseCommand = Console.ReadLine();
+                    switch (houseCommand.ToLower())
+                    {
+                        case "p":
                             {
-                                case "w":
-                                    Console.WriteLine(world.GetMapAsString());
-                                    Console.WriteLine(world.GetDetailsAsString());
-                                    break;
-                                case "v":
-                                    VassleMenu(subjectHouse);
-                                    break;
-                                case "d":
+                                var proposalCommand = "";
+                                Proposal selectedProposal = null;
+                                do
+                                {
+                                    Console.WriteLine("Select a proposal to review or e[x]it:");
+                                    for (int i = 0; i < incomingProposals.Count(); i++)
                                     {
-                                        Console.WriteLine(subjectHouse.GetDetailsAsString());
+                                        Console.WriteLine(i + 1 + ". " + incomingProposals[i].Sender.Lord.FullNameAndAge);
                                     }
-                                    break;
+                                    proposalCommand = Console.ReadLine();
+                                    var proposalNumber = -1;
+                                    if (int.TryParse(proposalCommand, out proposalNumber) && proposalNumber > 0 && proposalNumber <= incomingProposals.Count())
+                                    {
+                                        selectedProposal = incomingProposals[proposalNumber-1];
+                                        var proposalDetailCommand = "";
+                                        var exitProposalDetail = false;
+                                        while (!exitProposalDetail)
+                                        {
+                                            Console.WriteLine(selectedProposal.GetDeatailsAsString());
+                                            Console.WriteLine("[A]ccept, [R]eject, or [E]xit.");
+                                            proposalDetailCommand = Console.ReadLine();
+                                            switch (proposalDetailCommand.ToLower())
+                                            {
+                                                case "a": {
+                                                        selectedProposal.Accept();
+                                                        incomingProposals.Remove(selectedProposal);
+                                                        exitProposalDetail = true;
+                                                        Console.WriteLine("Proposal accepted!");
+                                                    } break;
+                                                case "r": {
+                                                        selectedProposal.Reject();
+                                                        incomingProposals.Remove(selectedProposal);
+                                                        exitProposalDetail = true;
+                                                        Console.WriteLine("Proposal rejected!");
+                                                    }
+                                                    break;
+                                                case "x": {
+                                                        exitProposalDetail = true;
+                                                    }
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                }
+                                while (proposalCommand.ToLower() != "x" && incomingProposals.Count() > 0);
+                            }break;
+                        case "w":
+                            Console.WriteLine(world.GetMapAsString());
+                            Console.WriteLine(world.GetDetailsAsString());
+                            break;
+                        case "v":
+                            VassleMenu(subjectHouse);
+                            break;
+                        case "d":
+                            {
+                                Console.WriteLine(subjectHouse.GetDetailsAsString());
+                            }
+                            break;
                         case "h":
                             {
                                 foreach (var recordedYear in subjectHouse.History)
@@ -1202,10 +1246,19 @@ namespace GameOfHouses.Logic
                                 }
                             }
                         }
-                    //}
-                    
-                //}
-            }
+            var heirsLeftToBetroth = House.GetOrderOfSuccession(2).Where(heir => heir.IsEligableForBetrothal() && heir.Household.Lordship != null && heir.Household.Lordship.Lord.House == House).ToList();
+            var remainingEligibleNobleSubjects = House.Lordships
+            .SelectMany(l => l.Households)
+            .SelectMany(h => h.Members)
+            .Where(
+                m =>
+                m.Class == SocialClass.Noble
+                && m.People == House.Lord.People
+                && !heirsLeftToBetroth.Contains(m)
+                && m.IsEligableForBetrothal()
+                ).ToList();
+            world.EligibleNobles = world.EligibleNobles.Union(remainingEligibleNobleSubjects).ToList();
+        }
         public List<Lordship> AttackHistory { get; set; }
         }
     }

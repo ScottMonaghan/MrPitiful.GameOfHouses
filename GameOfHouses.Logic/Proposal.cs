@@ -68,6 +68,7 @@ Sender.Lord.Household.AddMember(person);
                 RequestedPeople.ForEach(p => message += "\t\t" + p.FullNameAndAge + "\n");
                 Receiver.RecordHistory(message);
                 Sender.RecordHistory(message);
+                world.Proposals.Remove(this);
             }
         }
         public void Reject()
@@ -85,6 +86,18 @@ Sender.Lord.Household.AddMember(person);
             RequestedPeople.ForEach(p => message += "\t\t" + p.FullNameAndAge + "\n");
             Receiver.RecordHistory(message);
             Sender.RecordHistory(message);
+            world.Proposals.Remove(this);
+        }
+        public string GetDeatailsAsString()
+        {
+            var message = "PROPOSAL: \n"
+               + "\tSender: " + Sender.Lord.FullNameAndAge + "\n"
+               + "\tReciever: " + Receiver.Lord.FullNameAndAge + "\n"
+               + "\tOffered People\n";
+            OfferedPeople.ForEach(p => message += "\t\t" + p.FullNameAndAge + "\n");
+            message += "\tRequested People\n";
+            RequestedPeople.ForEach(p => message += "\t\t" + p.FullNameAndAge + "\n");
+            return message;
         }
     }
 }
