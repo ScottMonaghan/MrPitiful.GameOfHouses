@@ -43,7 +43,6 @@
     <Compile Include="AssessedIncome.cs" />
     <Compile Include="Betrothal.cs" />
     <Compile Include="Constants.cs" />
-    <Compile Include="DeploymentRequest.cs" />
     <Compile Include="enums.cs" />
     <Compile Include="Game.cs" />
     <Compile Include="GlobalSuppressions.cs" />

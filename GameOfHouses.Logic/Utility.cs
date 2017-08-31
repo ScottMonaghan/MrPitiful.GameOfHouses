@@ -21,24 +21,44 @@ namespace GameOfHouses.Logic
                 return femaleNames[rnd.Next(0, femaleNames.Count())];
             }
         }
-        public static void IncrementYear(World world, Random rnd)
+        public static void IncrementYear(World world, Random rnd, int yearsToIncrement = 1) //Player player, World world, PlayerInputCommand callingCommand, PlayerInputCommand returnCommand, Random rnd)
         {
-            //1. Houses make moves
-            //Console.WriteLine("Completing House Moves...");
-            //var housesToMakeMoves = world.NobleHouses.ToList();
-            //while (housesToMakeMoves.Count() > 0)
-            //{
-            //    var nextIndex = rnd.Next(0, housesToMakeMoves.Count());
-            //    var houseToMakeMoves = housesToMakeMoves[nextIndex];
-            //    HouseMoves(houseToMakeMoves, rnd);
-            //    housesToMakeMoves.Remove(houseToMakeMoves);
-            //}
-            //world.NobleHouses.ForEach(house => house.History[world.Year] = "");
-            Console.WriteLine("Performing Noble Marriages...");
-            PerformNobleMarriages(world);
-            //2. Increment Word Year
-            Console.WriteLine("Incrementing World Year...");
-            world.IncrementYear();
+            
+            world.Game.Players.ForEach(p => p.IncrementYear());
+            for (int i = 0; i < yearsToIncrement; i++)
+            {
+                //1. Marriages
+                var housesToMakeMoves = world.NobleHouses.Where(h => h.Lord != null).ToList();
+                while (housesToMakeMoves.Count() > 0)
+                {
+                    var nextIndex = rnd.Next(0, housesToMakeMoves.Count());
+                    var houseToMakeMoves = housesToMakeMoves[nextIndex];
+                    housesToMakeMoves.Remove(houseToMakeMoves);
+                    var heirsLeftToBetroth = houseToMakeMoves.Lord.GetCurrentHeirs().Where(heir => heir.IsEligableForBetrothal() && heir.Household.Lordship != null && heir.Household.Lordship.Lord!=null && heir.Household.Lordship.Lord.House == houseToMakeMoves).ToList();
+                    if (houseToMakeMoves.Lord.IsEligableForBetrothal())
+                    {
+                        heirsLeftToBetroth.Add(houseToMakeMoves.Lord);
+                    }
+                    var remainingEligibleNobleSubjects = houseToMakeMoves.Lordships
+                    .SelectMany(l => l.Households)
+                    .SelectMany(h => h.Members)
+                    .Where(
+                        m =>
+                        m.Class == SocialClass.Noble
+                        && m.People == houseToMakeMoves.Lord.People
+                        && !heirsLeftToBetroth.Contains(m)
+                        && m.IsEligableForBetrothal()
+                        ).ToList();
+                    world.EligibleNobles = world.EligibleNobles.Union(remainingEligibleNobleSubjects).ToList();
+                }
+                //world.NobleHouses.ForEach(house => house.History[world.Year] = "");
+                //callingCommand.Result.Output+="Performing Noble Marriages...\n";
+
+                PerformNobleMarriages(world);// player, callingCommand, returnCommand, world);
+                                             //2. Increment Word Year
+                                             //callingCommand.Result.Output+="Incrementing World Year...";
+                world.IncrementYear();
+            }
         }
         public static void HouseMoves(House house, Random rnd)
         {
@@ -142,18 +162,16 @@ namespace GameOfHouses.Logic
                 headsLeftToMatch.Remove(eligableLordOrHeir);
             }
         }
-        public static House CreateNewHouse(string name, char symbol, People people, Lordship lordship, Random rnd, House allegience = null, int yearsToIterate = Constants.YEARS_TO_ITERATE_NEW_HOUSES, int numberOfPeasantHouseholds = Constants.MINIMUM_VILLAGE_SIZE, Player player = null)
+        public static House CreateNewHouse(string name, char symbol, Sex lordsSex, People people, World newWorld, Random rnd, House allegience = null, int yearsToIterate = Constants.YEARS_TO_ITERATE_NEW_HOUSES, int numberOfPeasantHouseholds = Constants.MINIMUM_VILLAGE_SIZE, Player player = null)
         {
             Person newLord = null;
             World oldWorld = null;
-            World newWorld = null;
             Lordship oldLordship = null;
             Person lord = null;
             while (newLord == null || !newLord.IsAlive)
             {
-                oldWorld = new World(rnd) { Year = lordship.World.Year - Constants.YEARS_TO_ITERATE_NEW_HOUSES };//lordship.World;
-                newWorld = lordship.World;
-                oldLordship = new Lordship(rnd) { Name = "OldLordship" };
+                oldWorld = new World(rnd) { Year = newWorld.Year - Constants.YEARS_TO_ITERATE_NEW_HOUSES };//lordship.World;
+                oldLordship = new Lordship(rnd) { Name = "the homeland" };
                 oldWorld.AddLordship(oldLordship);
                 //create settlers
                 var firstSettlers = new List<Household>();
@@ -161,7 +179,7 @@ namespace GameOfHouses.Logic
                 {
                     var husband = new Person(rnd)
                     {
-                        Age = rnd.Next(18, 36),
+                        Age = rnd.Next(Constants.AGE_OF_MAJORITY, Constants.AGE_OF_MAJORITY * 2),
                         Sex = Sex.Male,
                         Profession = Profession.Peasant,
                         Class = SocialClass.Peasant,
@@ -182,38 +200,30 @@ namespace GameOfHouses.Logic
                     };
                     oldWorld.AddPerson(wife);
                     var settlerHousehold = Household.CreateMarriageHousehold(husband, wife);
-                    settlerHousehold.HouseholdClass = SocialClass.Peasant;
+                    //settlerHousehold.HouseholdClass = SocialClass.Peasant;
                     firstSettlers.Add(settlerHousehold);
                 }
-                //for (var i = 0; i<30; i++)
-                //{
-                //    oldWorld.IncrementYear();
-                //}
                 lord = new Person(rnd)
                 {
-                    Age = 18,
-                    Sex = Sex.Male,
+                    Age = Constants.AGE_OF_MAJORITY,
+                    Sex = lordsSex,
                     Profession = Profession.Noble,
                     Class = SocialClass.Noble,
                     People = people,
-                    BirthYear = oldWorld.Year - 18
+                    BirthYear = oldWorld.Year - Constants.AGE_OF_MAJORITY
                 };
                 oldWorld.AddPerson(lord);
-                var lady = new Person(rnd)
+                var lordsSpouse = new Person(rnd)
                 {
-                    Age = 18,
-                    Sex = Sex.Female,
+                    Age = Constants.AGE_OF_MAJORITY,
+                    Sex = lordsSex == Sex.Female? Sex.Male:Sex.Female,
                     Profession = Profession.Noble,
                     Class = SocialClass.Noble,
                     People = people,
-                    BirthYear = oldWorld.Year - 18
+                    BirthYear = oldWorld.Year - Constants.AGE_OF_MAJORITY
                 };
-                oldWorld.AddPerson(lady);
+                oldWorld.AddPerson(lordsSpouse);
                 lord.House = new House() { Name = name, Symbol = symbol};
-                //if (!lord.House.History.ContainsKey(oldWorld.Year))
-                //{
-                //    lord.House.History[oldWorld.Year] = "";
-                //}
                 lord.House.AddLord(lord);
                 lord.House.AddMember(lord);
                 if (player != null)
@@ -221,14 +231,10 @@ namespace GameOfHouses.Logic
                     lord.House.AddPlayer(player);
                 }
                 oldWorld.AddHouse(lord.House);
-                var lordsHousehold = Household.CreateMarriageHousehold(lord, lady);
-                lordsHousehold.HouseholdClass = SocialClass.Noble;
+                var lordsHousehold = Household.CreateMarriageHousehold(lord, lordsSpouse);
                 Lordship.PopulateLordship(oldLordship, lordsHousehold, firstSettlers);
                 for (var i = 0; i < yearsToIterate; i++)
                 {
-                    //if (!lord.House.History.ContainsKey(oldWorld.Year)) {
-                    //    lord.House.History[oldWorld.Year] = "";
-                    //}
                     oldWorld.IncrementYear();
                     var eligibleNobles = oldWorld.Population.Where(x => x.Class == SocialClass.Noble && x.IsEligibleForMarriage());
                     while (eligibleNobles.Count() > 0)
@@ -236,15 +242,16 @@ namespace GameOfHouses.Logic
                         //create a spouse for each
                         var eligibleNoble = eligibleNobles.First();
                         var spouse = new Person(rnd) { Age = eligibleNoble.Age, Class = SocialClass.Noble, BirthYear = eligibleNoble.BirthYear, People = people };
-                        if (eligibleNoble.Sex == Sex.Male)
-                        {
-                            spouse.Sex = Sex.Female;
-                        }
-                        else
-                        {
-                            spouse.Sex = Sex.Male;
-                        }
+
+                        //set sex of all headsOfHousehold to ensure player-chosen sex 
+                        eligibleNoble.Sex = lordsSex;
+                        eligibleNoble.Name = GetName(lordsSex, rnd);
+
+                        spouse.Sex = lordsSex == Sex.Female ? Sex.Female : Sex.Male;
+                        eligibleNoble.Name = GetName(spouse.Sex, rnd);
+                        
                         oldWorld.AddPerson(spouse);
+
                         var marriageHousehold = Household.CreateMarriageHousehold(eligibleNoble, spouse);
                         if (!firstSettlers.Contains(marriageHousehold))
                         {
@@ -252,8 +259,6 @@ namespace GameOfHouses.Logic
                         }
                     }
                 }
-                //old world is iterated now prepare for the new world
-                //1. get the lord's household
                 newLord = oldLordship.Lords.Last();
             }
             var newHouse = lord.House;
@@ -267,18 +272,18 @@ namespace GameOfHouses.Logic
             {
                 allegience.AddVassle(newHouse);
             }
-            newWorld.AddHouse(lord.House);
-            //lord.House.Seat = lordship;
+            //newWorld.AddHouse(lord.House);
             var settlerHouseholds = new List<Household>();
             settlerHouseholds.AddRange(nobleHouseholds);
             settlerHouseholds.AddRange(peasantHouseholds);
+            
             //everyone else from the old world dies.  It's rough out there.
             oldWorld.Population.Where(p => !newLordsHouseHold.Members.Contains(p) && settlerHouseholds.Count(sh => sh.Members.Contains(p)) == 0).ToList().ForEach(p => p.IsAlive = false);
-            newLord.Lordships.Remove(oldLordship); //remove the old lordship
-            Lordship.PopulateLordship(lordship, newLordsHouseHold, settlerHouseholds);
+            //newLord.Lordships.Remove(oldLordship); //remove the old lordship
+            //Lordship.PopulateLordship(lordship, newLordsHouseHold, settlerHouseholds);
             return lord.House;
         }
-        public static void PerformNobleMarriages(World world)
+        public static void PerformNobleMarriages(World world)//Player player, PlayerInputCommand callingCommand, PlayerInputCommand returnCommand, World world)
         {
             var bethrothalsToCheck = new List<Bethrothal>();
             bethrothalsToCheck.AddRange(world.Bethrothals);
@@ -298,9 +303,9 @@ namespace GameOfHouses.Logic
                 bethrothalsToCheck.Remove(betrothalToCheck);
             }
         }
-        public static Game InitializeWorld(World world, Random rnd, Player livePlayer, string playerName = "Eddard", string playerHouse = "Stark", Sex playerSex = Sex.Male)
+        public static Game InitializeWorld(World world, Random rnd)//, string playerName = "Eddard", string playerHouse = "Stark", Sex playerSex = Sex.Male)
         {
-            var newGame = new Game();
+            var newGame = new Game(rnd) { World = world };
             var lordshipNames = Constants.TOWN_NAMES.Split(',').ToList();
             for (var y = 1; y <= Constants.MAP_HEIGHT; y++)
             {
@@ -312,34 +317,7 @@ namespace GameOfHouses.Logic
                 }
             }
 
-            //create first dane house
-            var northernPlayerLordship1 = world.Lordships.Where(l => l.MapY == 1 & l.MapX == 1).SingleOrDefault();
-            var northernPlayerLordship2 = world.Lordships.Where(l => l.MapY == 1 & l.MapX == Constants.MAP_WIDTH).SingleOrDefault();
-            var northernPlayerLordship3 = world.Lordships.Where(l => l.MapY == 1 & l.MapX == Constants.MAP_WIDTH/2).SingleOrDefault();
-            var southernPlayerLordship1 = world.Lordships.Where(l => l.MapY == Constants.MAP_HEIGHT & l.MapX == 1).SingleOrDefault();
-            var southernPlayerLordship2 = world.Lordships.Where(l => l.MapY == Constants.MAP_HEIGHT & l.MapX == Constants.MAP_WIDTH).SingleOrDefault();
-            var southernPlayerLordship3 = world.Lordships.Where(l => l.MapY == Constants.MAP_HEIGHT & l.MapX == Constants.MAP_WIDTH/2).SingleOrDefault();
-            //northernPlayerLordship.Name = "Winterfell";
-            //southernPlayerLordship.Name = "Casterly Rock";
-            var player1 = new Player() { PlayerType = PlayerType.Live };
-            var player2 = new Player() { PlayerType = PlayerType.AIAggressive };
-            var player3 = new Player() { PlayerType = PlayerType.AIAggressive };
-            var player4 = new Player() { PlayerType = PlayerType.AIAggressive };
-            var player5 = new Player() { PlayerType = PlayerType.AIAggressive };
-            var player6 = new Player() { PlayerType = PlayerType.AIAggressive };
-            newGame.AddPlayer(player1);
-            newGame.AddPlayer(player2);
-            newGame.AddPlayer(player3);
-            newGame.AddPlayer(player4);
-            newGame.AddPlayer(player5);
-            newGame.AddPlayer(player6);
-            var northernPlayer1House = CreateNewHouse("Stark", 'S', People.Norvik, northernPlayerLordship1, rnd, null, Constants.YEARS_TO_ITERATE_PLAYER_HOUSES, Constants.MINIMUM_VILLAGE_SIZE * 4, player1);
-            var northernPlayer2House = CreateNewHouse("Tully", 'T', People.Norvik, northernPlayerLordship2, rnd, null, Constants.YEARS_TO_ITERATE_PLAYER_HOUSES, Constants.MINIMUM_VILLAGE_SIZE * 4, player2);
-            var northernPlayer3House = CreateNewHouse("Baratheon", 'B', People.Norvik, northernPlayerLordship3, rnd, null, Constants.YEARS_TO_ITERATE_PLAYER_HOUSES, Constants.MINIMUM_VILLAGE_SIZE * 4, player3);
-            var southernPlayer1House = CreateNewHouse("Lannister", 'L', People.Sulthaen, southernPlayerLordship1, rnd, null, Constants.YEARS_TO_ITERATE_PLAYER_HOUSES, Constants.MINIMUM_VILLAGE_SIZE * 4, player4);
-            var southernPlayer2House = CreateNewHouse("Bolton", 'B', People.Sulthaen, southernPlayerLordship2, rnd, null, Constants.YEARS_TO_ITERATE_PLAYER_HOUSES, Constants.MINIMUM_VILLAGE_SIZE * 4, player5);
-            var southernPlayer3House = CreateNewHouse("Frey", 'F', People.Sulthaen, southernPlayerLordship3, rnd, null, Constants.YEARS_TO_ITERATE_PLAYER_HOUSES, Constants.MINIMUM_VILLAGE_SIZE * 4, player6);
-            //seed whole world
+            //Create Kyltklen lordships
             foreach (var lordship in world.Lordships.Where(l => l.Lord == null))
             {
                 var newLand = lordship;
@@ -357,12 +335,19 @@ namespace GameOfHouses.Logic
                 }
                 var aiPlayer = new Player() { PlayerType = PlayerType.AIAggressive };
                 newGame.AddPlayer(aiPlayer);
-                var newHouse = CreateNewHouse(newHouseName, (char)rnd.Next(33, 126), People.Kyltcled, newLand, rnd, null, rnd.Next(20, 40), rnd.Next(Constants.MINIMUM_VILLAGE_SIZE, Constants.MINIMUM_VILLAGE_SIZE * 2), aiPlayer);
+                //create house
+                var newHouse = CreateNewHouse(newHouseName, (char)rnd.Next(33, 126), (Sex)rnd.Next(0,1), People.Kyltcled, world, rnd, null, rnd.Next(Constants.AGE_OF_MAJORITY, Constants.AGE_OF_MAJORITY*2), rnd.Next(Constants.MINIMUM_VILLAGE_SIZE, Constants.MINIMUM_VILLAGE_SIZE * 2), aiPlayer);
+                //remove temp lordship created with house
+                newHouse.Lord.Lordships.Clear();
+                world.AddHouse(newHouse);
+                //populate lordship
+                Lordship.PopulateLordship(lordship, newHouse.Lord.Household, newHouse.Lord.Household.Lordship.Households.Where(h=>h!=newHouse.Lord.Household).ToList());
+
                 Console.WriteLine(lordship.Name + " populated");
             }
             return newGame;
         }
-        public static Game InitializeWorldWithIntro(World world, Random rnd, Player player, string playerName = "Eddard", string playerHouse = "Stark", Sex playerSex = Sex.Male)
+        public static Game InitializeWorldWithIntro(World world, Random rnd, string playerName = "Eddard", string playerHouse = "Stark", Sex playerSex = Sex.Male)
         {
             Console.WriteLine("What is your name?");
             playerName = Console.ReadLine();
@@ -396,105 +381,107 @@ namespace GameOfHouses.Logic
             ));
             playerHouse = Console.ReadLine();
 
-            var newGame = InitializeWorld(world, rnd, player, playerName, playerHouse, playerSex);
+            return InitializeWorld(world, rnd);//, playerName, playerHouse, playerSex);
 
-            var playerLord = player.House.Lords.Last();
-            if (playerLord.Father == null)
-            {
-                playerLord.Father = new Person(rnd);
-            }
+            //var newGame = InitializeWorld(world, rnd, player, playerName, playerHouse, playerSex);
 
-            Console.Write(
-                "\nYou are " + playerLord.FullNameAndAge + "\n\n"
-                );
-            var playerHeirs = playerLord.GetCurrentHeirs();
-            if (playerHeirs.Count() > 0)
-            {
-                var output = String.Format("You have {0} living heir{1}: ", playerHeirs.Count(), playerHeirs.Count > 1 ? "s" : "");
-                foreach (var heir in playerHeirs)
-                {
-                    if (heir == playerHeirs.First())
-                    {
-                        output += "a ";
-                    }
-                    else if (heir == playerHeirs.Last())
-                    {
-                        output += ", and a ";
-                    }
-                    else
-                    {
-                        output += ", a ";
-                    }
-                    if (heir.Ancestors.IndexOf(playerLord) + 1 > 4)
-                    {
-                        output += "great ";
-                    }
-                    if (heir.Ancestors.IndexOf(playerLord) + 1 > 2)
-                    {
-                        output += "gand";
-                    }
-                    if (heir.Sex == Sex.Male)
-                    {
-                        output += "son";
-                    }
-                    else
-                    {
-                        output += "daughter";
-                    }
-                }
-                output += string.Format(".\nBy tradition, you as {0} of the house, name your heirs.\n", playerLord.Sex == Sex.Male ? "Lord and Patriarch" : "Lady and Matriarch");
-                Console.WriteLine(output);
-                foreach (var heir in playerHeirs)
-                {
-                    var relation = "";
-                    if (heir.Ancestors.IndexOf(playerLord) + 1 > 4)
-                    {
-                        relation += "great ";
-                    }
-                    if (heir.Ancestors.IndexOf(playerLord) + 1 > 2)
-                    {
-                        relation += "gand";
-                    }
-                    if (heir.Sex == Sex.Male)
-                    {
-                        relation += "son";
-                    }
-                    else
-                    {
-                        relation += "daughter";
-                    }
-                    Console.WriteLine(String.Format("What is your {0}'s name?", relation));
-                    heir.Name = Console.ReadLine();
+            //var playerLord = player.House.Lords.Last();
+            //if (playerLord.Father == null)
+            //{
+            //    playerLord.Father = new Person(rnd);
+            //}
 
-                }
-                Console.WriteLine("\nYour heirs are:");
-                foreach (var heir in playerHeirs)
-                {
-                    Console.WriteLine(heir.FullNameAndAge);
-                }
-                Console.WriteLine("Enter to continue..");
-                Console.ReadLine();
-            }
-            Console.WriteLine(string.Format(
-            "\n"
-            + "The great house of {0} has fallen on hard times.\n\n"
-            + "The rich soil that has provided bounty for uncounted generations of your people has turned rocky and fruitless.\n\n"
-            + "The surrounding land is racked with strife, banditry, and civil war. The sway that House {0} once held over lords and kings alike is a distant memory.\n\n"
-            + "Nought remains of the once-great wealth of House {0} except for your family and the good men and women in your service -- and your renouned, sturdy long-ships.\n\n"
-            + "Days ago, in a feverish state, lying in his death bed, your father, staring wide-eyed, speaking to no-one, had been raving madly for days-on of a land of plenty to the east.\n\n"
-            + "As you knelt at the foot of his bed for his final hours, his eyes suddenly grew sharp and fixed on you with steel-blue intensity that instantly\n"
-            + "transformed him from this pitiful frail wretch into the powerful man-god whose presence dominated your childhood heart with equal parts awe, love and fear.\n\n"
-            + "And, for the last time, {1}, Lord and Patriarch of House {0}, filled the room with that oh-so-familiar baritone of command:\n"
-            + "'{2}! GATHER OUR PEOPLE INTO OUR LONGSHIPS AND SAIL EAST TO SALVATION! IF NOT, ALL IS LOST AND HOUSE {3} WILL BE NO MORE!'\n\n"
-            + "He then collapsed into a fugue and spoke naught another word."
-            , playerLord.House.Name
-            , playerLord.Father.Name
-            , playerLord.Name.ToUpper()
-            , playerLord.House.Name.ToUpper()
-            ));
-            Console.WriteLine("Enter to continue..");
-            Console.ReadLine();
-            return newGame;
+            //Console.Write(
+            //    "\nYou are " + playerLord.FullNameAndAge + "\n\n"
+            //    );
+            //var playerHeirs = playerLord.GetCurrentHeirs();
+            //if (playerHeirs.Count() > 0)
+            //{
+            //    var output = String.Format("You have {0} living heir{1}: ", playerHeirs.Count(), playerHeirs.Count > 1 ? "s" : "");
+            //    foreach (var heir in playerHeirs)
+            //    {
+            //        if (heir == playerHeirs.First())
+            //        {
+            //            output += "a ";
+            //        }
+            //        else if (heir == playerHeirs.Last())
+            //        {
+            //            output += ", and a ";
+            //        }
+            //        else
+            //        {
+            //            output += ", a ";
+            //        }
+            //        if (heir.Ancestors.IndexOf(playerLord) + 1 > 4)
+            //        {
+            //            output += "great ";
+            //        }
+            //        if (heir.Ancestors.IndexOf(playerLord) + 1 > 2)
+            //        {
+            //            output += "gand";
+            //        }
+            //        if (heir.Sex == Sex.Male)
+            //        {
+            //            output += "son";
+            //        }
+            //        else
+            //        {
+            //            output += "daughter";
+            //        }
+            //    }
+            //    output += string.Format(".\nBy tradition, you as {0} of the house, name your heirs.\n", playerLord.Sex == Sex.Male ? "Lord and Patriarch" : "Lady and Matriarch");
+            //    Console.WriteLine(output);
+            //    foreach (var heir in playerHeirs)
+            //    {
+            //        var relation = "";
+            //        if (heir.Ancestors.IndexOf(playerLord) + 1 > 4)
+            //        {
+            //            relation += "great ";
+            //        }
+            //        if (heir.Ancestors.IndexOf(playerLord) + 1 > 2)
+            //        {
+            //            relation += "gand";
+            //        }
+            //        if (heir.Sex == Sex.Male)
+            //        {
+            //            relation += "son";
+            //        }
+            //        else
+            //        {
+            //            relation += "daughter";
+            //        }
+            //        Console.WriteLine(String.Format("What is your {0}'s name?", relation));
+            //        heir.Name = Console.ReadLine();
+
+            //    }
+            //    Console.WriteLine("\nYour heirs are:");
+            //    foreach (var heir in playerHeirs)
+            //    {
+            //        Console.WriteLine(heir.FullNameAndAge);
+            //    }
+            //    Console.WriteLine("Enter to continue..");
+            //    Console.ReadLine();
+            //}
+            //Console.WriteLine(string.Format(
+            //"\n"
+            //+ "The great house of {0} has fallen on hard times.\n\n"
+            //+ "The rich soil that has provided bounty for uncounted generations of your people has turned rocky and fruitless.\n\n"
+            //+ "The surrounding land is racked with strife, banditry, and civil war. The sway that House {0} once held over lords and kings alike is a distant memory.\n\n"
+            //+ "Nought remains of the once-great wealth of House {0} except for your family and the good men and women in your service -- and your renouned, sturdy long-ships.\n\n"
+            //+ "Days ago, in a feverish state, lying in his death bed, your father, staring wide-eyed, speaking to no-one, had been raving madly for days-on of a land of plenty to the east.\n\n"
+            //+ "As you knelt at the foot of his bed for his final hours, his eyes suddenly grew sharp and fixed on you with steel-blue intensity that instantly\n"
+            //+ "transformed him from this pitiful frail wretch into the powerful man-god whose presence dominated your childhood heart with equal parts awe, love and fear.\n\n"
+            //+ "And, for the last time, {1}, Lord and Patriarch of House {0}, filled the room with that oh-so-familiar baritone of command:\n"
+            //+ "'{2}! GATHER OUR PEOPLE INTO OUR LONGSHIPS AND SAIL EAST TO SALVATION! IF NOT, ALL IS LOST AND HOUSE {3} WILL BE NO MORE!'\n\n"
+            //+ "He then collapsed into a fugue and spoke naught another word."
+            //, playerLord.House.Name
+            //, playerLord.Father.Name
+            //, playerLord.Name.ToUpper()
+            //, playerLord.House.Name.ToUpper()
+            //));
+            //Console.WriteLine("Enter to continue..");
+            //Console.ReadLine();
+            //return newGame;
 
         }
         public static String GetDecendentsRelatioinshipToAncestor(Person ancestor, Person descendent)
@@ -518,7 +505,7 @@ namespace GameOfHouses.Logic
             }
             return output;
         }
-        public static void Attack(Lordship commandingLordship, List<Lordship> attackers, Lordship target, Random rnd, bool getLiveInput = true, bool acceptFealty = false, bool acceptSurrender = false, double retreatRatio = 1, bool echo = true)
+        public static void Attack(Player player, Lordship commandingLordship, List<Lordship> attackers, Lordship target, PlayerInputCommand callingCommand, PlayerInputCommand returnMenu, Random rnd, bool getLiveInput = true, bool acceptFealty = false, bool acceptSurrender = false, double retreatRatio = 1, bool echo = true, bool ignoreDistance = false)
         {
 
             //Gather initial armies
@@ -532,18 +519,20 @@ namespace GameOfHouses.Logic
             var distancesFromAttackersToTarget = target.GetShortestAvailableDistanceToLordship(availablePath);
             var livingAttackers = new List<Person>();
             foreach (var attackingLordship in attackers) {
-                if (!distancesFromAttackersToTarget.ContainsKey(attackingLordship) || double.IsPositiveInfinity(distancesFromAttackersToTarget[attackingLordship]))
+                if (!ignoreDistance && (!distancesFromAttackersToTarget.ContainsKey(attackingLordship) || double.IsPositiveInfinity(distancesFromAttackersToTarget[attackingLordship])))
                 {
-                    if (echo) { Console.WriteLine(attackingLordship.Lords.Last().FullNameAndAge + " cannot reach " + commandingLordship.Name); }
-
+                    if (callingCommand != null)
+                    {
+                        callingCommand.Result.Output += (attackingLordship.Lords.Last().FullNameAndAge + " cannot reach " + commandingLordship.Name) + "\n";
+                    }
                 }
                 else
                 {
                     livingAttackers.AddRange(attackingLordship.Army.Where(p => p.IsAlive));
                 }
             }
-            if (livingAttackers.Count()>0)
-            {
+            //if (livingAttackers.Count()>0)
+            //{
                 var livingDefenders = target.Army.ToList();
 
                 //set booleans for commands
@@ -553,29 +542,27 @@ namespace GameOfHouses.Logic
                 //var acceptSurrender = false;
                 var retreat = false;
                 var endBattle = false;
-                var timeSinceStartOfAttack = 0;
-#pragma warning disable CS0219 // The variable 'attackerArrived' is assigned but its value is never used
+                var timeSinceStartOfAttack = 1;
                 var attackerArrived = false;
-#pragma warning restore CS0219 // The variable 'attackerArrived' is assigned but its value is never used
                 var distanceFromAttackerToTarget = distancesFromAttackersToTarget[commandingLordship];
                 var defendersAllies = target.GetAllies().ToList();//.Where(l=>l.LordIsInResidence).ToList();
                 var unarrivedDefendersAllies = defendersAllies.ToList();
                 var DistancesToDefenderAllies = target.GetShortestAvailableDistanceToLordship(defendersAllies);
-                do
+                var attackRoundCommand = new PlayerInputCommand(player);
+                player.NextCommand = attackRoundCommand;
+                attackRoundCommand.PromptFunc = () =>
                 {
-
-                    timeSinceStartOfAttack++;
+                    var prompt = "";
                     //--check and see if attacker has arrived
                     if (timeSinceStartOfAttack < distanceFromAttackerToTarget)
                     {
-                        if (echo) { Console.WriteLine(commandingLordship.Lords.Last().FullNameAndAge + " is on the march!"); }
+                        prompt += (commandingLordship.Lords.Last().FullNameAndAge + " is on the march!\n"); 
                     }
                     else
                     {
                         attackerArrived = true;
-                        if (echo) { Console.WriteLine(commandingLordship.Lords.Last().FullNameAndAge + " has arrived at " + target.Name + " with an army of " + livingAttackers.Count()); }
+                        prompt += (commandingLordship.Lords.Last().FullNameAndAge + " has arrived at " + target.Name + " with an army of " + livingAttackers.Count()) + "\n";
                     }
-
                     //--check for defender reinforcements
                     for (var i = 0; i < unarrivedDefendersAllies.Count; i++)
                     {
@@ -584,10 +571,11 @@ namespace GameOfHouses.Logic
                         {
                             unarrivedDefendersAllies.Remove(unarrivedAlly);
                             var reinforcements = unarrivedAlly.Army.ToList();
-                            if (echo) { Console.WriteLine(unarrivedAlly.Lords.Last().FullNameAndAge + " arrived with " + reinforcements.Count() + " reinforcements!"); }
+                            prompt+= (unarrivedAlly.Lords.Last().FullNameAndAge + " arrived with " + reinforcements.Count() + " reinforcements!\n"); 
                             livingDefenders.AddRange(reinforcements);
                         }
                     }
+
                     //--defender may surrender and offer fealty
                     if (livingAttackers.Count() > livingDefenders.Count() * Constants.SURRENDER_RATIO)
                     {
@@ -598,7 +586,7 @@ namespace GameOfHouses.Logic
                         if (target.Lord != null)
                         {
                             targetAdjacentHouseLordships = adjacentLordships.Intersect(target.Lord.House.Lordships).ToList();
-                            targetAdjacentAllyLordships =  adjacentLordships.Intersect(defendersAllies).ToList();
+                            targetAdjacentAllyLordships = adjacentLordships.Intersect(defendersAllies).ToList();
                         }
                         if (targetAdjacentHouseLordships.Count() > 0 || targetAdjacentAllyLordships.Count() > 0)
                         {
@@ -612,164 +600,182 @@ namespace GameOfHouses.Logic
                                 sanctuary = targetAdjacentAllyLordships[rnd.Next(0, targetAdjacentAllyLordships.Count())];
                             }
 
-                            //move all households to sactuary
+                            //move all households to sanctuary
                             foreach (var fleeingHousehold in target.Households.ToList())
                             {
                                 sanctuary.AddHousehold(fleeingHousehold);
                             }
                             livingDefenders.Clear();
-                            if (echo) { Console.WriteLine("FLIGHT: " + target.Lord.FullNameAndAge + " HAS FLED to " + sanctuary.Name); }
+                            prompt += ("FLIGHT: " + target.Lord.FullNameAndAge + " HAS FLED to " + sanctuary.Name) + "\n";
                         }
                         else
                         {
-                            if (target.Lord!=null && target.Lord.House.Player.PlayerType != PlayerType.AIAggressive && target.Lord.People == commandingLordship.Lord.People && target.Lord.House.GetSovreign().Lord.Location == target)
+                            if (target.Lord != null && commandingLordship.Lord.People != People.Kyltcled && target.Lord.People == commandingLordship.Lord.People && target.Lord.House.GetSovreign().Lord.Household != null && target.Lord.House.GetSovreign().Lord.Household.Lordship == target)
                             {
                                 //Fealty 
-                                if (echo) { Console.WriteLine("OFFER OF FEALTY: " + target.Lord.FullNameAndAge + "sues for peace and OFFERS FEALTY to " + commandingLordship.Lord.FullNameAndAge); }
+                                prompt += ("OFFER OF FEALTY: " + target.Lord.FullNameAndAge + "sues for peace and OFFERS FEALTY to " + commandingLordship.Lord.FullNameAndAge) + "\n";
                                 offerFealty = true;
-                            } //else
-                              //{
-                            if (echo) { Console.WriteLine("SURRENDER: " + target.Name + " SURRENDERS to " + commandingLordship.Lord.FullNameAndAge); }
+                            } 
+                            prompt += ("SURRENDER: " + target.Name + " SURRENDERS to " + commandingLordship.Lord.FullNameAndAge) + "\n";
                             offerSurrender = true;
-
-                            //}
                         }
                     }
-                    //--attacker chooses to continue attack or not
-                    var validInput = false;
-                    while (!validInput && getLiveInput)
+                    prompt += "Remaining Attackers: " + livingAttackers.Count() + "\n";
+                    prompt += "Remaining Defenders: " + livingDefenders.Count() + "\n";
+                    prompt += ("[R]etreat?\n[A]ttack?\n");
+                    if (offerFealty)
                     {
-                        Console.WriteLine("Remaining Attackers: " + livingAttackers.Count());
-                        Console.WriteLine("Remaining Defenders: " + livingDefenders.Count());
-                        Console.WriteLine("[R]etreat?\n[A]ttack?");
-                        if (offerFealty)
-                        {
-                            Console.WriteLine("Accept [F]ealty?");
-                        }
-                        if (offerSurrender)
-                        {
-                            Console.WriteLine("Accept [S]urrender?");
-                        }
-                        Console.WriteLine("[R]etreat?\n[A]ttack?");
-                        var command = Console.ReadLine();
-                        switch (command.ToUpper().Trim())
-                        {
-                            case "R":
-                                validInput = true;
-                                retreat = true;
-                                break;
-                            case "A":
-                                validInput = true;
-                                break;
-                            case "F":
-                                if (offerFealty)
-                                {
-                                    validInput = true;
-                                    acceptFealty = true;
-                                }
-                                break;
-                            case "S":
-                                if (offerSurrender)
-                                {
-                                    validInput = true;
-                                    acceptSurrender = true;
-                                }
-                                break;
-                        }
+                        prompt+=("Accept [F]ealty?\n");
                     }
+                    if (offerSurrender)
+                    {
+                        prompt+=("Accept [S]urrender?\n");
+                    }
+                    return prompt;
+                };
+                attackRoundCommand.CommandFunc = (attackRoundCommandInput) =>
+                {
+                    var validInput = false;
+                    switch (attackRoundCommandInput.ToUpper().Trim())
+                    {
+                        case "R":
+                            validInput = true;
+                            retreat = true;
+                            break;
+                        case "A":
+                            validInput = true;
+                            break;
+                        case "F":
+                            if (offerFealty)
+                            {
+                                validInput = true;
+                                acceptFealty = true;
+                            }
+                            break;
+                        case "S":
+                            if (offerSurrender)
+                            {
+                                validInput = true;
+                                acceptSurrender = true;
+                            }
+                            break;
+                    }
+
+                    if (livingDefenders.Count() == 0 || livingAttackers.Count() == 0)
+                    {
+                        endBattle = true;
+                    }
+
+                    //--attacker chooses to continue attack or not
                     if (!getLiveInput)
                     {
+                        validInput = true;
                         var defenderToAttackerRatio = (double)livingDefenders.Count() / livingAttackers.Count();
-                            
+
                         if (defenderToAttackerRatio > retreatRatio)
                         {
                             retreat = true;
                         }
                     }
                     //--if retreat then battle is over
-                    if (retreat)
+                    if (retreat || double.IsInfinity(distanceFromAttackerToTarget)) 
                     {
                         endBattle = true;
-                        if (echo) { Console.WriteLine("RETREAT: " + commandingLordship.Lord.FullNameAndAge + " RETREATED from battle."); }
+                        attackRoundCommand.Result.Output += ("RETREAT: " + commandingLordship.Lord.FullNameAndAge + " RETREATED from battle.\n");
                     }
                     //--if fealty is accepted battle is over
                     if (offerFealty && acceptFealty)
                     {
                         endBattle = true;
                         commandingLordship.Lord.House.AddVassle(target.Lord.House);
-                        if (echo) { Console.WriteLine("FEALTY: " + commandingLordship.Lord.House.Lord.FullNameAndAge + " accepted FEALTRY from " + target.Lord.House.Lord.FullNameAndAge); }
+                        var record = ("FEALTY: " + commandingLordship.Lord.House.Lord.FullNameAndAge + " accepted FEALTRY from " + target.Lord.House.Lord.FullNameAndAge) + "\n";
+                        commandingLordship.Lord.House.RecordHistory(record);
+                        target.Lord.House.RecordHistory(record);
+                        attackRoundCommand.Result.Output += record;
                     }
                     else if (offerSurrender && acceptSurrender)
                     {
                         endBattle = true;
                     }
+                    if (validInput) {
+                        timeSinceStartOfAttack++;
+                        if (!endBattle && attackerArrived)
+                        {
+                            //proceed with attack
+                            var waveOfAttackers = livingAttackers.ToList();
+                            var countOfAttackersInWave = waveOfAttackers.Count();
+                            var countOfDefendersInWave = livingDefenders.Count();
+                            int attackerCasultiesInWave = 0;
+                            int defenderCasultiesInWave = 0;
+                            while (waveOfAttackers.Count() > 0 && livingDefenders.Count > 0)
+                            {
+                                var defender = livingDefenders[rnd.Next(0, livingDefenders.Count())];
+                                var attacker = waveOfAttackers[rnd.Next(0, waveOfAttackers.Count())];
+                                waveOfAttackers.Remove(attacker);
+                                var battleResult = rnd.Next(0, 2);
+                                if (battleResult == 0)
+                                {
+                                    attacker.IsAlive = false;
+                                    attackerCasultiesInWave++;
+                                }
+                                else
+                                {
+                                    defender.IsAlive = false;
+                                    defenderCasultiesInWave++;
+                                }
+                                livingDefenders.RemoveAll(p => !p.IsAlive);
+                                livingAttackers.RemoveAll(p => !p.IsAlive);
+                            }
+                            attackRoundCommand.Result.Output+=(string.Format("ATTACK WAVE {0} RESULTS:", timeSinceStartOfAttack)) + "\n";
+                            attackRoundCommand.Result.Output += ("\tAttackers in Wave: " + countOfAttackersInWave) + "\n";
+                            attackRoundCommand.Result.Output += ("\tDefender in Wave: " + countOfDefendersInWave) + "\n";
+                            attackRoundCommand.Result.Output += ("\tAttacker Casulties in Wave: " + attackerCasultiesInWave) + "\n";
+                            attackRoundCommand.Result.Output += ("\tDefender Casulties in Wave: " + defenderCasultiesInWave) + "\n";
+                        }
+                    }
+                    if (livingAttackers.Count() == 0)
+                    {
+                        //DEFEAT
+                        endBattle = true;
+                        var record = ("DEFEAT: " + commandingLordship.Lord.FullNameAndAge + " WAS DEFEATED at " + target.Name + " by " + target.Lord.FullNameAndAge) + "\n";
+                        commandingLordship.Lord.House.RecordHistory(record);
+                        target.Lord.House.RecordHistory(record);
+                        attackRoundCommand.Result.Output += record;
+                    }
+                    if (livingDefenders.Count() == 0 || (offerSurrender && acceptSurrender))
+                    {
+                        //--if attacker wins they become Lord of lordship and take all nobles hostage                  
+                        var record = 
+                        string.Format("SURRENDER: {0} SURRENDERED {1} to {2}\n", 
+                            target.Lord.FullNameAndAge, 
+                            target.Name,
+                            commandingLordship.Lord.FullNameAndAge);
+                        target.Lord.House.RecordHistory(record);
+                        commandingLordship.Lord.House.RecordHistory(record);
+                        attackRoundCommand.Result.Output += record;
 
-                    if (!endBattle)
-                    {
-                        //proceed with attack
-                        var waveOfAttackers = livingAttackers.ToList();
-                        var countOfAttackersInWave = waveOfAttackers.Count();
-                        var countOfDefendersInWave = livingDefenders.Count();
-                        int attackerCasultiesInWave = 0;
-                        int defenderCasultiesInWave = 0;
-                        while (waveOfAttackers.Count() > 0 && livingDefenders.Count > 0)
+                        var newLord = commandingLordship.Lord;
+                        endBattle = true;
+                        var oldLord = target.Lord;
+                        if (oldLord != null)
                         {
-                            var defender = livingDefenders[rnd.Next(0, livingDefenders.Count())];
-                            var attacker = waveOfAttackers[rnd.Next(0, waveOfAttackers.Count())];
-                            waveOfAttackers.Remove(attacker);
-                            var battleResult = rnd.Next(0, 2);
-                            if (battleResult == 0)
-                            {
-                                attacker.IsAlive = false;
-                                attackerCasultiesInWave++;
-                            }
-                            else
-                            {
-                                defender.IsAlive = false;
-                                defenderCasultiesInWave++;
-                            }
-                            livingDefenders.RemoveAll(p => !p.IsAlive);
-                            livingAttackers.RemoveAll(p => !p.IsAlive);
+                            oldLord.Lordships.Remove(target);
                         }
-                        if (echo)
-                        {
-                            Console.WriteLine(string.Format("ATTACK WAVE {0} RESULTS:", timeSinceStartOfAttack));
-                            Console.WriteLine("\tAttackers in Wave: " + countOfAttackersInWave);
-                            Console.WriteLine("\tDefender in Wave: " + countOfDefendersInWave);
-                            Console.WriteLine("\tAttacker Casulties in Wave: " + attackerCasultiesInWave);
-                            Console.WriteLine("\tDefender Casulties in Wave: " + defenderCasultiesInWave);
-                        }
+                        target.Lords.Clear();
+                        target.Vacant = true;
+                        target.AddLord(newLord);
+                        //you can't attack from a newly conquored lordship
+                        newLord.House.Player.HouseLordshipsSummonedThisTurn.Add(target);
                     }
-                } while (livingDefenders.Count() > 0 && livingAttackers.Count() > 0 && !endBattle);
-                if (livingAttackers.Count() == 0)
-                {
-                    //DEFEAT
-                    endBattle = true;
-                    if (echo) { Console.WriteLine("DEFEAT: " + commandingLordship.Lord.FullNameAndAge + " WAS DEFEATED by " + target.Lord.FullNameAndAge); }
-                }
-                if (livingDefenders.Count() == 0 || (offerSurrender && acceptSurrender))
-                {
-                    //--if attacker wins they become Lord of lordship and take all nobles hostage
-                    
-                    if (echo)
+                    if (endBattle)
                     {
-                        Console.Write("SURRENDER: " + target.Name + " HAS SURRENDERED " + target.Name + "\n");
+                        player.NextCommand = returnMenu;
                     }
-                    
-                    var newLord = commandingLordship.Lord;
-                    endBattle = true;
-                    var oldLord = target.Lord;
-                    if (oldLord != null)
-                    {
-                        oldLord.Lordships.Remove(target);
-                    }
-                    target.Lords.Clear();
-                    target.Vacant = true;
-                    target.AddLord(newLord);
-                    
-                }
-            }
-        }
+
+                };
+                
+            //}
+       }
 
     }
 }

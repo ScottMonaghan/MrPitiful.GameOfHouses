@@ -10,9 +10,10 @@ namespace GameOfHouses.Logic
     {
         public Household()
         {
+            Id = Guid.NewGuid();
             Members = new List<Person>();
             Lordship = null;
-            HouseholdClass = SocialClass.Peasant;
+            //HouseholdClass = SocialClass.Peasant;
         }
         //The members of the family
         //public Person HouseFounder { get; set; }
@@ -21,7 +22,7 @@ namespace GameOfHouses.Logic
         public List<Person> Members { get; set; }
         //Where the family currently lives
         public Lordship Lordship { get; set; }
-        public SocialClass HouseholdClass { get; set; }
+        public SocialClass HouseholdClass { get { return HeadofHousehold.Class; } }
         public void AddMember(Person newMember)
         {
             if (!Members.Contains(newMember))
@@ -31,7 +32,7 @@ namespace GameOfHouses.Logic
                     newMember.Household.RemoveMember(newMember);
                 }
                 Members.Add(newMember);
-                newMember.MoveToLocation(Lordship);
+                //newMember.MoveToLocation(Lordship);
                 newMember.Household = this;
             }
         }
@@ -76,38 +77,38 @@ namespace GameOfHouses.Logic
             House newHouse = null;
             var world = headsOldHouse.World;
 
-            //create new house unless headOfHousehold is lord
-            if (headOfHousehold.Class == SocialClass.Noble && headsOldHouse.Player != null && headOfHousehold != headsOldHouse.Lord)
-            {
+            //This wasn't a good idea ->create new house unless headOfHousehold is lord
+            //if (headOfHousehold.Class == SocialClass.Noble && headsOldHouse.Player != null && headOfHousehold != headsOldHouse.Lord)
+            //{
 
-                newHouse = new House() { Name = headOfHousehold.Name + headsOldHouse.Name.ToLower(), Symbol = headOfHousehold.Name[0] };
-                var game = headsOldHouse.Player.Game;
-                newHouse.AddMember(headOfHousehold);
-                newHouse.AddLord(headOfHousehold);
-                var newHousePlayerType = PlayerType.AISubmissive;
-                if (headsOldHouse.Player.PlayerType == PlayerType.Live && headsOldHouse.Player.PlayerType == PlayerType.AIAggressive)
-                {
-                    newHousePlayerType = PlayerType.AIAggressive;
-                }
-                newHouse.AddPlayer(new Player() { PlayerType = newHousePlayerType });
-                world.AddHouse(newHouse);
-                game.AddPlayer(newHouse.Player);
-                headsOldHouse.AddVassle(newHouse);
-                var foundingRecord = "HOUSE FOUNDING: " + headOfHousehold.FullNameAndAge + " FOUNDED House " + newHouse.Name + " in " + world.Year + "\n";
-                newHouse.RecordHistory(foundingRecord);
-                headsOldHouse.RecordHistory(foundingRecord);
-            }
+            //    newHouse = new House() { Name = headOfHousehold.Name + headsOldHouse.Name.ToLower(), Symbol = headOfHousehold.Name[0] };
+            //    var game = headsOldHouse.Player.Game;
+            //    newHouse.AddMember(headOfHousehold);
+            //    newHouse.AddLord(headOfHousehold);
+            //    var newHousePlayerType = PlayerType.AISubmissive;
+            //    if (headsOldHouse.Player.PlayerType == PlayerType.Live && headsOldHouse.Player.PlayerType == PlayerType.AIAggressive)
+            //    {
+            //        newHousePlayerType = PlayerType.AIAggressive;
+            //    }
+            //    newHouse.AddPlayer(new Player() { PlayerType = newHousePlayerType });
+            //    world.AddHouse(newHouse);
+            //    game.AddPlayer(newHouse.Player);
+            //    headsOldHouse.AddVassle(newHouse);
+            //    var foundingRecord = "HOUSE FOUNDING: " + headOfHousehold.FullNameAndAge + " FOUNDED House " + newHouse.Name + " in " + world.Year + "\n";
+            //    newHouse.RecordHistory(foundingRecord);
+            //    headsOldHouse.RecordHistory(foundingRecord);
+            //}
 
             if (headOfHousehold.Class == SocialClass.Noble)
             {
                 var news = "MARRIAGE: " + headOfHousehold.FullNameAndAge + " MARRIED " + spouse.FullNameAndAge + " in " + headOfHousehold.World.Year + "\n";
                 if (newHouse != null) { newHouse.RecordHistory(news); }
-                if (headsOldHouse != null && headOfHousehold.House.Player != null)
+                if (headsOldHouse != null && headOfHousehold.House.Player != null && (headOfHousehold.IsHouseHeir() || headOfHousehold.IsHouseLord()))
                 {
                     var year = headsOldHouse.World.Year;
                     headsOldHouse.RecordHistory(news);
                 }
-                if (spousesOldHouse != null && spouse.House.Player != null)
+                if (spousesOldHouse != null && spouse.House.Player != null && (spouse.IsHouseLord() || spouse.IsHouseHeir()))
                 {
                     var year = spousesOldHouse.World.Year;
                     spousesOldHouse.RecordHistory(news);
@@ -125,7 +126,7 @@ namespace GameOfHouses.Logic
                 };
                 if (headsOldHousehold != null)
                 {
-                    marriageHousehold.HouseholdClass = headsOldHousehold.HouseholdClass;
+                    //marriageHousehold.HouseholdClass = headsOldHousehold.HouseholdClass;
                     //headsOldHousehold.Lordship.AddHousehold(marriageHousehold);
                     //marriageHousehold.Lordship = headsOldHousehold.Lordship;
                 }
@@ -139,7 +140,7 @@ namespace GameOfHouses.Logic
             }
 
             //add head's minor children to household
-            var headsMinorChildren = headOfHousehold.Children.Where(x => x.Age < 18 & x.IsAlive).ToList();
+            var headsMinorChildren = headOfHousehold.Children.Where(x => x.Age < Constants.AGE_OF_MAJORITY & x.IsAlive).ToList();
             if (headsMinorChildren.Count() > 0)
             {
                 headsMinorChildren.ForEach(x => {
@@ -148,7 +149,7 @@ namespace GameOfHouses.Logic
             }
 
             //add spouse's minor children to household
-            var spousesMinorChildren = spouse.Children.Where(x => x.Age < 18 & x.IsAlive).ToList();
+            var spousesMinorChildren = spouse.Children.Where(x => x.Age < Constants.AGE_OF_MAJORITY & x.IsAlive).ToList();
             if (spousesMinorChildren.Count() > 0)
             {
                 spousesMinorChildren.ForEach(x => {
@@ -164,6 +165,16 @@ namespace GameOfHouses.Logic
         {
             newLordship.AddHousehold(this);
             //move all members that are present in the oldLordship  
+        }
+        public Household Flatten()
+        {
+            return new Household()
+            {
+                HeadofHousehold = new Person(new Random()) { Id = HeadofHousehold.Id },
+                Id = Id,
+                Lordship = new Lordship(new Random()) { Id = Lordship.Id },
+                Members = Members.Select(m => new Person(new Random()) { Id = m.Id }).ToList()
+            };
         }
     }
 }

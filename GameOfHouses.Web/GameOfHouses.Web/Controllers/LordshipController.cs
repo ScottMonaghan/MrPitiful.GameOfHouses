@@ -19,7 +19,7 @@ namespace GameOfHouses.Web.Controllers
         // GET api/<controller>
 
         [Route("GetLordshipDetails/{id}")]
-        public LordshipDetailsDTO Get(Guid id)
+        public LordshipDetailsDTO GetLordshipDetails(Guid id)
         {
             var game = (Game)HttpContext.Current.Application["Game"];
             var lordship = game.Players[0].House.World.Lordships.SingleOrDefault(l => l.Id == id);
@@ -36,12 +36,12 @@ namespace GameOfHouses.Web.Controllers
                         Id = lordship.Lord.Id,
                         Name = lordship.Lord.Name,
                         FullNameAndAge = lordship.Lord.FullNameAndAge,
-                        FullNameAndAgeWithLinks = GetFullNameAndAgeWithLinks(lordship.Lord),
+                        //FullNameAndAgeWithLinks = GetFullNameAndAgeWithLinks(lordship.Lord),
                         House = new HouseDTO()
                         {
                             Id = lordship.Lord.House.Id,
                             Name = lordship.Lord.House.Name,
-                            CrestNumber = lordship.World.NobleHouses.IndexOf(lordship.Lord.House).ToString("0000")
+                            //CrestNumber = lordship.World.NobleHouses.IndexOf(lordship.Lord.House).ToString("0000")
                         }
                     },
                     MapX = lordship.MapX,
@@ -64,7 +64,7 @@ namespace GameOfHouses.Web.Controllers
                              Id = p.Id,
                              Name = p.Name,
                              FullNameAndAge = p.FullNameAndAge,
-                             FullNameAndAgeWithLinks = GetFullNameAndAgeWithLinks(p)
+                             //FullNameAndAgeWithLinks = GetFullNameAndAgeWithLinks(p)
                          }
                         ).ToList(),
                      PeasantHouseholds = lordship.Households.Count(h=>h.HeadofHousehold.Class == SocialClass.Peasant)
@@ -75,10 +75,55 @@ namespace GameOfHouses.Web.Controllers
             }            
         }
 
-        // GET api/<controller>/5
-        public string Get(int id)
+        [HttpGet]
+        public List<LordshipDTO> Get()
         {
-            return "value";
+            var game = (Game)HttpContext.Current.Application["Game"];
+            return game.World.Lordships.Select(l => new LordshipDTO(l)).ToList();
+        }
+        // GET api/<controller>/5
+        [HttpGet, Route("{id}")]
+        public LordshipDTO Get(Guid id)
+        {
+            var game = (Game)HttpContext.Current.Application["Game"];
+            var lordship = game.World.Lordships.FirstOrDefault(l => l.Id == id);
+            if (lordship != null)
+            {
+                return new LordshipDTO(lordship);
+            } else
+            {
+                return null;
+            }
+        }
+
+        [HttpGet, Route("GetByCoordinates/{mapX}/{mapY}")]
+        public LordshipDTO GetByCoordinates(int mapX, int mapY)
+        {
+            var game = (Game)HttpContext.Current.Application["Game"];
+            var lordship = game.World.Lordships.FirstOrDefault(l => l.MapX == mapX && l.MapY==mapY);
+            if (lordship != null)
+            {
+                return new LordshipDTO(lordship);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        [HttpGet, Route("GetHouseholds/{id}")]
+        public List<HouseholdDTO> GetHouseholds(Guid id)
+        {
+            var game = (Game)HttpContext.Current.Application["Game"];
+            var lordship = game.World.Lordships.FirstOrDefault(l=>l.Id == id);
+            if (lordship != null)
+            {
+                return lordship.Households.Select(h=>new HouseholdDTO(h)).ToList();
+            }
+            else
+            {
+                return null;
+            }
         }
 
         // POST api/<controller>

@@ -40,7 +40,7 @@ namespace GameOfHouses.Web.Controllers
                 Age = introPlayerLord.Age,
                 Sex = introPlayerLord.Sex,
                 FullNameAndAge = introPlayerLord.FullNameAndAge,
-                Residence = introPlayerLord.Household.Lordship.Name,
+                Residence = new LordshipDTO(introPlayerLord.Household.Lordship),
                 Father = introPlayerLord.Father != null ? new PersonDTO() {
                     Id = introPlayerLord.Father.Id,
                     Name = introPlayerLord.Father.Name,
@@ -60,7 +60,7 @@ namespace GameOfHouses.Web.Controllers
                         Age = h.Age,
                         Sex = h.Sex,
                         FullNameAndAge = h.FullNameAndAge,
-                        Residence = h.Household.Lordship.Name,
+                        Residence = new LordshipDTO(h.Household.Lordship),//h.Household.Lordship.Name,
                         Relation = GetDecendentsRelatioinshipToAncestor(introPlayerLord, h)
                     };
                 }).ToList()

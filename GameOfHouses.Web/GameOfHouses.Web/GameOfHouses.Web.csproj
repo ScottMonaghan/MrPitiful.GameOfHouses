@@ -178,6 +178,7 @@
     <Compile Include="App_Start\Startup.Auth.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\AccountController.cs" />
+    <Compile Include="Controllers\PlayerController.cs" />
     <Compile Include="Controllers\PersonController.cs" />
     <Compile Include="Controllers\LordshipController.cs" />
     <Compile Include="Controllers\HouseController.cs" />
@@ -186,10 +187,12 @@
     <Compile Include="Controllers\ManageController.cs" />
     <Compile Include="DTOs\HouseDetailsDTO.cs" />
     <Compile Include="DTOs\HouseDTO.cs" />
+    <Compile Include="DTOs\HouseholdDTO.cs" />
     <Compile Include="DTOs\IntroPlayerDTO.cs" />
     <Compile Include="DTOs\LordshipDetailsDTO.cs" />
     <Compile Include="DTOs\LordshipDTO.cs" />
     <Compile Include="DTOs\PersonDetailsDTO.cs" />
+    <Compile Include="DTOs\PlayerDTO.cs" />
     <Compile Include="DTOs\PersonDTO.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>

@@ -19,7 +19,7 @@ namespace GameOfHouses.Web.DTOs
         public PersonDTO HeadOfHouseholdToBe { get; set; }
         public PersonDTO SpouseToBe { get; set; }
     }
-    public class HouseholdDTO
+    /*public class HouseholdDTO
     {
         public HouseholdDTO() { }
         public HouseholdDTO(Household h)
@@ -29,7 +29,8 @@ namespace GameOfHouses.Web.DTOs
         }
         public Guid Id { get; set; }
         public PersonDTO HeadOfHousehold { get; set; }
-    }
+    }*/
+
     public class PersonDetailsDTO
     {
         public Guid Id { get; set; }

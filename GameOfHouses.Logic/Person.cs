@@ -10,10 +10,14 @@ namespace GameOfHouses.Logic
     {
         private Random _rnd;
         private string _cachedFullNameAndAge;
-        private int _lastCashedFullNameAndAgeRefesh;
+        private int _lastCachedFullNameAndAgeRefesh;
+        private House _house;
+        private Household _household;
+        private string _name;
+
         public Person(Random rnd)
         {
-            _lastCashedFullNameAndAgeRefesh = -999;
+            _lastCachedFullNameAndAgeRefesh = -999;
             _rnd = rnd;
             Id = Guid.NewGuid();
             Household = new Household();
@@ -24,7 +28,7 @@ namespace GameOfHouses.Logic
             IsAlive = true;
             Children = new List<Person>();
             Spouse = null;
-            if (Age >= 18 && Age < 50)
+            if (Age >= Constants.AGE_OF_MAJORITY && Age < Constants.AGE_OF_RETIREMENT)
             {
                 Profession = Profession.Peasant;
             }
@@ -41,12 +45,12 @@ namespace GameOfHouses.Logic
         public World World { get; set; }
         public SocialClass Class { get; set; }
         public List<Person> Ancestors { get; set; }
-        public House House { get; set; }
-        public Household Household { get; set; }
+        public House House { get { return _house; } set { _lastCachedFullNameAndAgeRefesh = -1; _house = value; } }
+        public Household Household { get { return _household; } set { _lastCachedFullNameAndAgeRefesh = -1; _household = value; } }
         public int BirthYear { get; set; }
         public Lordship BirthPlace { get; set; }
-        public string Name { get; set; }
-        private string RefreshFullNameAndAge()
+        public string Name { get { return _name; } set {_lastCachedFullNameAndAgeRefesh = -1; _name = value; } }
+        public void RefreshFullNameAndAge()
         {
                 string fullNameAndAge = "";
                 fullNameAndAge += this.Name;
@@ -148,18 +152,18 @@ namespace GameOfHouses.Logic
                 {
                     fullNameAndAge += ", residing in " + Household.Lordship.Name;
                 }
-                fullNameAndAge += ", age " + this.Age;
-                return fullNameAndAge;
+                fullNameAndAge += ", age " + this.Age * Constants.AGE_MULTIPLIER;
+                _cachedFullNameAndAge =  fullNameAndAge;
             
 
         }
         public string FullNameAndAge
         {
             get {
-                if (_lastCashedFullNameAndAgeRefesh != World.Year)
+                if (_lastCachedFullNameAndAgeRefesh != World.Year)
                 {
-                    _cachedFullNameAndAge = RefreshFullNameAndAge();
-                    _lastCashedFullNameAndAgeRefesh = World.Year;
+                    RefreshFullNameAndAge();
+                    _lastCachedFullNameAndAgeRefesh = World.Year;
                 }
                 return _cachedFullNameAndAge;
             }
@@ -177,20 +181,10 @@ namespace GameOfHouses.Logic
             get
             {
                 double income = 0;
-                switch (Profession)
+               //only peasants in prime produce income
+               if (Age>=Constants.AGE_OF_MAJORITY && Age<=Constants.AGE_OF_RETIREMENT && Class == SocialClass.Peasant)
                 {
-                    case Profession.Dependant:
-                        income = Constants.DEPENDENT_INCOME;
-                        break;
-                    case Profession.Peasant:
-                        income = Constants.PEASANT_INCOME;
-                        break;
-                    case Profession.Noble:
-                        income = Constants.NOBLE_INCOME;
-                        break;
-                        //case Profession.Soldier:
-                        //    income = Constants.SOLDIER_INCOME;
-                        //    break;
+                    income = Constants.PEASANT_INCOME;
                 }
                 // +/- 50%
                 return Math.Round(income + (income * (_rnd.NextDouble() * 0.5) * _rnd.Next(-1, 2)), 2);
@@ -201,20 +195,15 @@ namespace GameOfHouses.Logic
             get
             {
                 double cost = 0;
-                switch (Profession)
+                if (Class == SocialClass.Noble)
                 {
-                    case Profession.Dependant:
-                        cost = Constants.DEPENDENT_COST;
-                        break;
-                    case Profession.Peasant:
-                        cost = Constants.PEASANT_COST;
-                        break;
-                    case Profession.Noble:
-                        cost = Constants.NOBLE_COST;
-                        break;
-                    case Profession.Soldier:
-                        cost = Constants.SOLDIER_TOWN_COST;
-                        break;
+                    cost = Constants.NOBLE_COST;
+                } else if (Age >= Constants.AGE_OF_MAJORITY && Age <= Constants.AGE_OF_RETIREMENT && Class == SocialClass.Peasant)
+                {
+                    cost = Constants.PEASANT_COST;
+                } else
+                {
+                    cost = Constants.DEPENDENT_COST;
                 }
                 return cost;
             }
@@ -225,21 +214,14 @@ namespace GameOfHouses.Logic
         {
             if (IsAlive)
             {
-                NumberOfMovesThisYear = 0;
                 //Death Check
-                if (_rnd.Next(1, 100) < Age && _rnd.Next(1, 100) < Age && _rnd.Next(1, 100) < Age && _rnd.Next(1, 100) < Age)
+                if (_rnd.Next(1, Constants.AGE_OF_RETIREMENT *2) < Age && _rnd.Next(1, Constants.AGE_OF_RETIREMENT * 2) < Age && _rnd.Next(1, Constants.AGE_OF_RETIREMENT * 2) < Age && _rnd.Next(1, Constants.AGE_OF_RETIREMENT * 2) < Age)
                 {
-                    //if (World.Player != null && World.Player.House != null && House == World.Player.House && World.Player.House.Lords.Count() > 0 && World.Player.House.Lords.Last().GetCurrentHeirs().Contains(this))
-                    //{
-                    if (House.Player != null)
+                    if (House.Player != null && (IsHouseLord() || IsHouseHeir()))
                     {
                         House.RecordHistory("DEATH: " + FullNameAndAge + " DIED in " + World.Year + "\n");
                     }
-                    //}
                     Kill();
-                    //IsAlive = false;
-                    //Household.RemoveMember(this);
-                    ////World.RemovePerson(this);
                 }
                 else
                 {
@@ -251,11 +233,11 @@ namespace GameOfHouses.Logic
                     //and then they roll a die between 18 and 51 and must roll larger than their age
                     if (
                         Sex == Sex.Female
-                        && Age >= 18
+                        && Age >= Constants.AGE_OF_MAJORITY
                         && Spouse != null
                         && Spouse.IsAlive
                         && _rnd.NextDouble() <= Constants.CHILDBEARING_CHANCE_IN_PRIME
-                        && _rnd.Next(18, 51) > Age
+                        && _rnd.Next(Constants.AGE_OF_MAJORITY, Constants.AGE_OF_RETIREMENT+1) > Age
                         )
                     {
                         var childsMother = this;
@@ -284,11 +266,13 @@ namespace GameOfHouses.Logic
                         Household.AddMember(newborn);
                         House.AddMember(newborn);
                         World.AddPerson(newborn);
-                        if (House.Player != null)
-                        {
+                        if (House.Player != null && newborn.House.Lord!=null && (newborn.House.Lord.Children.Contains(newborn) || newborn.IsHouseLord()||newborn.IsHouseHeir()))
+                        {       
                             House.RecordHistory("BIRTH: " + newborn.FullNameAndAge + " WAS BORN in " + World.Year + "\n");
                         }
-                        if (House.Player!= null && House.Player.PlayerType == PlayerType.Live && House.Lord != null && House.Lord.GetCurrentHeirs().Contains(newborn))
+                        var sovreign = House.GetSovreign();
+                        /*
+                        if (sovreign.Player!= null && sovreign.Player.PlayerType == PlayerType.Live && sovreign.Lord != null && sovreign.Lord.GetCurrentHeirs().Contains(newborn))
                         {
                             Console.WriteLine(String.Format("REJOICE! A new heir, a {0}, was born to {1} and {2}.\n What name do you give {3}?"
                                 , newborn.Sex == Sex.Male ? "son" : "daughter",
@@ -299,6 +283,7 @@ namespace GameOfHouses.Logic
                             Console.WriteLine("Enter to continue...");
                             Console.ReadLine();
                         }
+                        */
                     }
                 }
             }
@@ -308,8 +293,8 @@ namespace GameOfHouses.Logic
             return (
                 IsAlive
                 && (Spouse == null || !Spouse.IsAlive)
-                && Age >= 18
-                && Age < 50
+                && Age >= Constants.AGE_OF_MAJORITY
+                && Age < Constants.AGE_OF_RETIREMENT
                 );
         }
         public bool IsEligableForBetrothal()
@@ -318,7 +303,7 @@ namespace GameOfHouses.Logic
                 IsAlive
                 && (Bethrothal == null || !Bethrothal.HeadOfHouseholdToBe.IsAlive || !Bethrothal.SpouseToBe.IsAlive)
                 && (Spouse == null || !Spouse.IsAlive)
-                && Age < 50
+                && Age < Constants.AGE_OF_RETIREMENT
                 );
         }
         public bool IsCompatible(Person potentialSpouse)
@@ -509,44 +494,11 @@ namespace GameOfHouses.Logic
         public Bethrothal Bethrothal { get; set; }
         public string GetDetailsAsString()
         {
-            string retString = World.GetMapAsString(null, Household.Lordship);
+            string retString = "";
 
             retString += "Name: " + FullNameAndAge + "\n";
             retString += "People: " + People + "\n";
             retString += "Class: " + Class + "\n";
-            retString += "Lordships: ";
-            if (Lordships.Count > 0)
-            {
-                foreach (var lordship in Lordships)
-                {
-                    retString += lordship.Name;
-                    if (lordship != Lordships.Last())
-                    {
-                        retString += ", ";
-                    }
-                    else
-                    {
-                        retString += "\n";
-                    }
-                }
-            }
-            else
-            {
-                retString += "none\n";
-            }
-            retString += "Fighters: ";
-            var fighterCount = 0;
-            if (Lordships.Count > 0)
-            {
-                foreach (var lordship in Lordships)
-                {
-                    foreach (var houseHold in lordship.Households)
-                    {
-                        fighterCount += houseHold.Members.Count(m => m.IsAlive && m.Age >= Constants.AGE_OF_MAJORITY && m.Age <= Constants.AGE_OF_RETIREMENT);
-                    }
-                }
-            }
-            retString += fighterCount + "\n";
             if (Spouse != null && Spouse.IsAlive)
             {
                 retString += "Spouse: " + Spouse.FullNameAndAge + "\n";
@@ -556,7 +508,7 @@ namespace GameOfHouses.Logic
                 retString += "Betrothal:\n"
                 + "\tBetrothal Year:" + Bethrothal.Year + "\n"
                 + "\tHead of Household to Be:" + Bethrothal.HeadOfHouseholdToBe.FullNameAndAge + "\n"
-                + "\tSpouce to Be: " + Bethrothal.SpouseToBe.FullNameAndAge + "\n";
+                + "\tSpouse to Be: " + Bethrothal.SpouseToBe.FullNameAndAge + "\n";
             }
             if (Children.Count() > 0)
             {
@@ -573,25 +525,55 @@ namespace GameOfHouses.Logic
 
             return retString;
         }
-        public Lordship Location { get; set; }
-        public int NumberOfMovesThisYear { get; set; }
-        public void MoveToLocation(Lordship targetLocation)
-        {
-            if (targetLocation != null && targetLocation != Location)
-            {
-                if (Location != null)
-                {
-                    Location.Population.Remove(this);
-                }
-                Location = targetLocation;
-                targetLocation.Population.Add(this);
-                NumberOfMovesThisYear++;
-            }
-        }
+        public Lordship Location { get { if (Household != null) { return Household.Lordship; } else return null; } }
+        //public int NumberOfMovesThisYear { get; set; }
         public void Kill()
         {
             IsAlive = false;
-            Household.RemoveMember(this);
+            if (Household != null)
+            {
+                Household.RemoveMember(this);
+            }
+        }
+        public bool IsHouseHeir()
+        {
+            if (House.Lord != null)
+            {
+                return House.Lord.GetCurrentHeirs().Contains(this);
+            } else
+            {
+                return false;
+            }
+        }
+        public bool IsHouseLord()
+        {
+            return House.Lord == this;
+        }
+        public Person Flatten()
+        {
+            return new Person(_rnd) {
+                Age = Age,
+                Ancestors = Ancestors.Select(a=>new Person(_rnd) { Id = a.Id}).ToList(),
+                Bethrothal = new Bethrothal() { Id = Bethrothal.Id},
+                BirthPlace = new Lordship(_rnd) { Id = BirthPlace.Id},
+                BirthYear = BirthYear,
+                Children = Children.Select(c=>new Person(_rnd) { Id = c.Id}).ToList(),
+                Class = Class,
+                Father = new Person(_rnd) { Id = Father.Id},
+                Mother = new Person(_rnd) { Id = Mother.Id},
+                House = new House() { Id = House.Id},
+                Household = new Household() { Id = Household.Id},
+                HouseLordships = HouseLordships.Select(hl=>new House() { Id = hl.Id}).ToList(), 
+                Id = Id, 
+                Sex = Sex, 
+                IsAlive = IsAlive, 
+                Profession = Profession, 
+                Lordships = Lordships.Select(l=>new Lordship(_rnd) { Id = l.Id}).ToList(),
+                Name = Name, 
+                People = People, 
+                Spouse = new Person(_rnd) { Id = Spouse.Id}, 
+                World = new World(_rnd) { Id = World.Id}
+            };
         }
     }
 

@@ -55,10 +55,10 @@ namespace GameOfHouses.Web.Controllers
                 Id = p.Id,
                 Age = p.Age,
                 FullNameAndAge = p.FullNameAndAge,
-                FullNameAndAgeWithLinks = GetFullNameAndAgeWithLinks(p),
+                //FullNameAndAgeWithLinks = GetFullNameAndAgeWithLinks(p),
                 House = new HouseController().Get(p.House.Id),
                 Name = p.Name,
-                Residence = p.Household.Lordship.Name,
+                Residence = new LordshipDTO(p.Household.Lordship),//p.Household.Lordship.Name,
                 Sex = p.Sex
             };
         }

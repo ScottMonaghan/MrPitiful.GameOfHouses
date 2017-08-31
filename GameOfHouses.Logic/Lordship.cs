@@ -20,12 +20,12 @@ namespace GameOfHouses.Logic
             Wealth = 0;
             Surplus = 0;
             _maxYeild = _rnd.Next(Constants.MAX_YEILD_LOW, Constants.MAX_YEILD_HIGH);
-            AssessedIncome = new List<AssessedIncome>();
+            AssessedIncomes = new List<AssessedIncome>();
             //Vassles = new List<Lordship>();
             Vacant = true;
             PlayerMoves = new List<Player>();
             //Army = new List<Person>();
-            Population = new List<Person>();
+            //Population = new List<Person>();
         }
         public Guid Id { get; set; }
         public Person Lord
@@ -41,11 +41,7 @@ namespace GameOfHouses.Logic
                 }
             }
         }
-        public bool LordIsInResidence { get {
-                return Lord != null && Lord.Household != null && Lord.Household.Lordship == this;
-            }
-        }
-        public List<Person> Population { get; set; }
+        public List<Person> Population { get { return Households.SelectMany(h => h.Members).ToList(); } }
         public World World { get; set; }
         public List<Person> Army {
             get {
@@ -60,118 +56,7 @@ namespace GameOfHouses.Logic
                 ).ToList();
             }
         }
-        //public void ConscriptSoldiers(int totalToConscript)
-        //{
-        //    var eligibleForConcription = EligibleForConscription.ToList();
-        //    var conscripts = new List<Person>();
-        //    while (conscripts.Count() < totalToConscript && eligibleForConcription.Count() > 0)
-        //    {
-        //        var conscript = eligibleForConcription[_rnd.Next(0, eligibleForConcription.Count())];
-        //        conscript.Profession = Profession.Soldier;
-        //        eligibleForConcription.Remove(conscript);
-        //        conscripts.Add(conscript);
-        //        conscript.MoveToLocation(LocationOfLordAndArmy);
-        //    }
-        //    Army.AddRange(conscripts);
-        //}
-        //public List<Person> EligibleForConscription
-        //{
-        //    get
-        //    {
-        //        return Households.SelectMany(h => h.Members.Where(
-        //            m =>
-        //            m.IsAlive
-        //            && m.Class == SocialClass.Peasant
-        //            && m.Age >= Constants.AGE_OF_MAJORITY
-        //            && m.Age <= Constants.AGE_OF_RETIREMENT
-        //            && m.Profession != Profession.Soldier
-        //            )).ToList();
-        //    }
-        //}
-        public List<Person> Farmers
-        {
-            get
-            {
-                return Households.SelectMany(h => h.Members.Where(
-                    m =>
-                    m.IsAlive
-                    && m.Class == SocialClass.Peasant
-                    && m.Age >= Constants.AGE_OF_MAJORITY
-                    && m.Age <= Constants.AGE_OF_RETIREMENT
-                    && m.Profession == Profession.Peasant
-                    )).ToList();
-            }
-        }
-        public void DischargeSoldiers(int totalToDischarge)
-        {
-            var eligibleForDischarge = Army.Where(s => s.IsAlive).ToList();
-            var dischargedSoldiers = new List<Person>();
-            while (eligibleForDischarge.Count() > 0 && dischargedSoldiers.Count() <= totalToDischarge)
-            {
-                var dischargedSoldier = eligibleForDischarge[_rnd.Next(0, eligibleForDischarge.Count())];
-                dischargedSoldier.Profession = Profession.Peasant;
-                eligibleForDischarge.Remove(dischargedSoldier);
-                dischargedSoldiers.Add(dischargedSoldier);
-                dischargedSoldier.MoveToLocation(dischargedSoldier.Household.Lordship);
-            }
-            Army.RemoveAll(s => dischargedSoldiers.Contains(s));
-        }
-        //public List<Lordship> Vassles { get; set; }
         public List<Player> PlayerMoves { get; set; }
-        //public Lordship Allegience { get; set; }
-        public List<Person> GetReinforcements()
-        {
-            return Army;
-        }
-        //public void AddVassle(Lordship vassle)
-        //{
-        //    if (!Vassles.Contains(vassle))
-        //    {
-        //        if (vassle.Allegience != null)
-        //        {
-        //            vassle.Allegience.RemoveVassle(vassle);
-        //            if (vassle.GetAllSubVassles().Contains(this))
-        //            {
-        //                //can't have circular allegience
-        //                this.Allegience.RemoveVassle(this);
-        //            }
-        //        }
-        //        Vassles.Add(vassle);
-        //        vassle.Allegience = this;
-        //    }
-        //}
-        //public void RemoveVassle(Lordship vassle)
-        //{
-        //    if (Vassles.Contains(vassle))
-        //    {
-        //        if (vassle.Allegience != null)
-        //        {
-        //            vassle.Allegience = null;
-        //        }
-        //        Vassles.Remove(vassle);
-        //    }
-        //}
-        //public List<Lordship> GetAllSubVassles()
-        //{
-        //    var subVassles = new List<Lordship>();
-        //    foreach (var vassle in Vassles)
-        //    {
-        //        subVassles.Add(vassle);
-        //        subVassles.AddRange(vassle.GetAllSubVassles());
-        //    }
-        //    return subVassles;
-        //}
-        public List<Household> GetPotentialSettlerLordHouseholds()
-        {
-            var potentialSettlerLordHouseholds = Households.Where(h =>
-            h.HeadofHousehold.IsAlive
-            && h.HeadofHousehold.Class == SocialClass.Noble
-            && h.HeadofHousehold.Lordships.Count() == 0
-            && h.HeadofHousehold.House == Lords.Last().House
-            && h.HeadofHousehold.GetHeirs().Count(heir => heir.House != Lords.Last().House) == 0
-            ).ToList();
-            return potentialSettlerLordHouseholds;
-        }
         public List<Person> Defenders
         {
             get
@@ -188,7 +73,7 @@ namespace GameOfHouses.Logic
         public int FoundingYear { get; set; }
         public String Name { get; set; }
         public List<Household> Households { get; set; }
-        public List<AssessedIncome> AssessedIncome { get; set; }
+        public List<AssessedIncome> AssessedIncomes { get; set; }
         public double Yeild { get; set; }
         public double Cost { get; set; }
         public double Surplus { get; set; }
@@ -196,16 +81,14 @@ namespace GameOfHouses.Logic
         public void IncrementYear()
         {
             PlayerMoves.Clear();
-            AttacksLedThisYear = 0;
+            //AttacksLedThisYear = 0;
             //lets fix this economy!
-            //var currentHeirs = 
             if (!Vacant)
             {
-                var subjects = Households.SelectMany(h => h.Members);//new List<Person>();
-                //Households.ForEach(x => villagers.AddRange(x.Members));
-
+                var subjects = Households.SelectMany(h => h.Members);
+ 
                 //4. Marry villagers! 
-                var villagersInPrime = subjects.Where(x => x.IsAlive && x.Age >= 18 && x.Age < 50 && x.Household.HouseholdClass == SocialClass.Peasant).ToList();
+                var villagersInPrime = subjects.Where(x => x.IsAlive && x.Age >= Constants.AGE_OF_MAJORITY && x.Age < Constants.AGE_OF_RETIREMENT && x.Household.HouseholdClass == SocialClass.Peasant).ToList();
                 Person.CreateMarriages(villagersInPrime.Where(x=>x.IsEligibleForMarriage()).ToList(), _rnd);
                 //5. Check for succession of Lord
                 var incumbentLord = Lords.Last();
@@ -219,38 +102,41 @@ namespace GameOfHouses.Logic
                     {
                         heir = orderOfSuccession[0];
                     }
+                    if (heir == null && incumbentLord.House.Lord != null)
+                    {
+                        heir = incumbentLord.House.Lord;
+                    }
                     if (heir != null)
                     {
                         AddLord(heir);
-                        if (World.Player != null && World.Player.House != null && heir.House == World.Player.House && World.Player.House.Lords.Last().GetCurrentHeirs().Contains(heir))
+                        var record = "INHERITANCE: " + heir.FullNameAndAge + " INHERITED the Lordship of " + Name + " from " + incumbentLord.FullNameAndAge + " in " + World.Year + "\n";
+                        heir.House.RecordHistory(record);
+                        if (heir.House != incumbentLord.House)
                         {
-                            Console.WriteLine("INHERITANCE: " + heir.FullNameAndAge + " INHERITED the Lordship of " + Name + " from " + incumbentLord.FullNameAndAge + " in " + World.Year);
-                            if (heir.House != incumbentLord.House)
-                            {
-                                Console.WriteLine("CHANGE OF HOUSE! " + Name + " passed from House " + incumbentLord.House.Name + " to " + heir.House.Name + " in " + World.Year);
-                            }
+                           incumbentLord.House.RecordHistory(record);
+                            record = ("CHANGE OF HOUSE! " + Name + " passed from House " + incumbentLord.House.Name + " to " + heir.House.Name + " in " + World.Year + "\n");
+                            heir.House.RecordHistory(record);
+                            incumbentLord.House.RecordHistory(record);
                         }
                     }
                     else
                     {
                         Vacant = true;
-                        if (World.Player != null && incumbentLord.House == World.Player.House)
-                        {
-                            Console.WriteLine("VACANCY: The Lordship of " + Name + " is vacant.");
-                        }
+                        incumbentLord.House.RecordHistory("VACANCY: The Lordship of " + Name + " is vacant.\n");
                     }
                 }
                 //6. Give jobs to unemployed villagers in prime
-                var unemployedVillagersInPrime = villagersInPrime.Where(x => x.Profession == Profession.Dependant).ToList();
-                foreach (var unemployedVillagerInPrime in unemployedVillagersInPrime)
-                {
-                    unemployedVillagerInPrime.Profession = Profession.Peasant;
-                }
+                //var unemployedVillagersInPrime = villagersInPrime.Where(x => x.Profession == Profession.Dependant).ToList();
+                //foreach (var unemployedVillagerInPrime in unemployedVillagersInPrime)
+                //{
+                //    unemployedVillagerInPrime.Profession = Profession.Peasant;
+                //}
                 //7. Calculate total cost
                 Cost = subjects.Sum(x => x.Cost);
                 //8. Calculate total yeild
                 Yeild = subjects.Sum(x => x.Income);
                 //+/- 20%
+                _maxYeild = World.Population.Count() / World.Lordships.Count() * 2;
                 var thisYearsMaxYeild = Math.Round(_maxYeild + (_maxYeild * (_rnd.NextDouble() * 0.2) * _rnd.Next(-1, 2)), 2);
                 if (thisYearsMaxYeild < Yeild)
                 {
@@ -263,72 +149,55 @@ namespace GameOfHouses.Logic
                 //11. Add surplus to income if positive
                 if (Surplus > 0) { income += Surplus; }
                 //12. Add Income to treasury
-                Wealth += income;
+                if (Lord != null)
+                {
+                    //Wealth += income;
+                    Lord.House.Wealth += income;
+                }
                 //Add income to assessedIncome (for tax to house)
-                AssessedIncome.Add(new AssessedIncome() { Year = World.Year, Income = income });
+                //AssessedIncomes.Add(new AssessedIncome() { Year = World.Year, Income = income });
                 //13. If there is a deficit then villagers die :(
-                //if (Surplus < 0)
-                //{
-                //    var deficit = Surplus * -1;
-                //    if (Wealth < 0)
-                //    {
-                //        deficit += Wealth * -1;
-                //    }
-                //    while (deficit > 0)
-                //    {
-                //        var peasantVillagers = villagers.Where(v => v.Class == SocialClass.Peasant).ToList();
-                //        if (peasantVillagers.Count() > 0)
-                //        {
-                //            //kill a random villager
-                //            var deadOne = peasantVillagers[_rnd.Next(0, peasantVillagers.Count())];
+                if (Surplus < 0)
+                {
+                    //make house treasury available
+                    var deficit = Surplus * -1;
+                    if (Lord != null)
+                    {
+                        var housefunds = Lord.House.Wealth;
+                        if (deficit >= housefunds)
+                        {
+                            deficit -= housefunds;
+                            Lord.House.Wealth = 0;
+                        } else
+                        {
+                            Lord.House.Wealth -= deficit;
+                            deficit = 0;
+                        }                       
+                    }
 
-                //            deadOne.IsAlive = false;
-                //            if (deadOne.Household != null)
-                //            {
-                //                deadOne.Household.RemoveMember(deadOne);
-                //            }
-                //            deficit -=
-                //                deadOne.Cost;
-                //        }
-                //    }
-                //}
+                    
+                    
+                    //if (Wealth < 0)
+                    //{
+                    //    deficit += Wealth * -1;
+                    //}
+                    var peasantVillagers = subjects.Where(v => v.Class == SocialClass.Peasant).ToList();
+                    while (deficit > 0 && peasantVillagers.Count() > 0)
+                    {
+                            //kill a random villager
+                            var deadOne = peasantVillagers[_rnd.Next(0, peasantVillagers.Count())];
+
+                            deadOne.Kill();
+
+                            deficit -=
+                                deadOne.Cost;
+                    }
+                }
                 //Clear out any empty households
                 Households.RemoveAll(x => x.Members.Count() == 0);
-                //Retire old subjects and send them home
-                subjects.Where(s => s.Age >= Constants.AGE_OF_RETIREMENT && s.Class == SocialClass.Peasant && s.Profession != Profession.Dependant).ToList().ForEach(retiree =>
-                {
-                    retiree.MoveToLocation(this);
-                    retiree.Profession = Profession.Dependant;
-                });
-                //remove dead & old subjects from army
-                //Army.RemoveAll(soldier => !soldier.IsAlive || soldier.Age >= Constants.AGE_OF_RETIREMENT);
-                // move lord and army to destination
-                /*
-                if (DeploymentRequest != null)
-                {
-                    if (DeploymentRequest.RequestingHouse == Lord.House || (Lord.House.Allegience != null && DeploymentRequest.RequestingHouse == Lord.House.Allegience))
-                    {
-                        if (!double.IsPositiveInfinity(GetShortestAvailableDistanceToLordship(DeploymentRequest.Destination, GetAllies())))
-                        {
-                            DischargeSoldiers(Army.Count());
-                            ConscriptSoldiers(DeploymentRequest.NumberOfTroops);
-                            DeploymentRequest.Destination.AddOccupyingLordAndArmy(this);
-                            if (DeploymentRequest.RequestingHouse.Player.PlayerType == PlayerType.Live)
-                            {
-                                Console.WriteLine("ARRIVAL: " + Lord.FullNameAndAge + " HAS ARRIVED AT " + DeploymentRequest.Destination.Name + " with " + Army.Count() + " soldiers.");
-                            }
-                            DeploymentRequest = null;
-                        }
-                        else
-                        {
-                            if (DeploymentRequest.RequestingHouse.Player.PlayerType == PlayerType.Live)
-                            {
-                                Console.WriteLine("UNREACHABLE: " + Lord.FullNameAndAge + " CANNOT REACH " + DeploymentRequest.Destination.Name);
-                            }
-                        }
-                    }
-                }*/
             }
+            //increase max yeild by 2% every year
+            _maxYeild = (int)Math.Ceiling(_maxYeild * 1.02);
         }
         public void AddHousehold(Household newHousehold)
         {
@@ -343,7 +212,7 @@ namespace GameOfHouses.Logic
                 Households.Add(newHousehold);
                 newHousehold.Lordship = this;
                 //only move members that are currently in oldLorship (other may be deployed in army)
-                newHousehold.Members.Where(m=>m.Location==oldLorship).ToList().ForEach(m => m.MoveToLocation(this));
+                //newHousehold.Members.Where(m=>m.Location==oldLorship).ToList().ForEach(m => m.MoveToLocation(this));
             }
         }
         public void Removehousehold(Household oldHousehold)
@@ -377,14 +246,6 @@ namespace GameOfHouses.Logic
             return _adjacentLordships;
         }
         public List<Person> Lords { get; set; }
-        public List<Lordship> ArmiesUnderLordsCommand { get {
-                //we want to return all the lordships at the curent lords location that are under the command of that lord
-                return LocationOfLordAndArmy.OccupyingLordsAndArmies.Where(a =>
-                        a == this ||
-                        Lord.House.GetAllSubVassles().Contains(a.Lord.House)
-                    ).ToList();
-            }
-        }
         public List<Person> GetOrderOfSuccession(int depth)
         {
             var successionList = new List<Person>();
@@ -409,36 +270,36 @@ namespace GameOfHouses.Logic
             if (!Vacant)
             {
                 //retString += World.GetMapAsString(null, this);
-                retString += ("Lordship: " + Name + '\n');
-                retString += ("Founding Year: " + FoundingYear + '\n');
+                retString += string.Format("Lordship: {0} ({1},{2})\n", Name, MapX, MapY);
+                //retString += ("Founding Year: " + FoundingYear + '\n');
                 retString += ("Lord: " + Lord.FullNameAndAge + '\n');
                 retString += ("Order of Succession:" + '\n');
-                var orderOfSuccession = GetOrderOfSuccession(10);
+                var orderOfSuccession = GetOrderOfSuccession(3);
                 for (int i = 0; i < orderOfSuccession.Count(); i++)
                 {
                     retString += ((i + 1) + ": " + orderOfSuccession[i].FullNameAndAge + '\n');
                 }
                 //var villagers = Households.SelectMany(h => h.Members);
-                retString += ("Army: " + Army.Count(s => s.IsAlive) + '\n');
-                retString += ("Occupying Armies: " + '\n');
-                foreach (var occupyingArmy in OccupyingLordsAndArmies)
-                {
-                    retString += "\t" + occupyingArmy.Name + "(" + occupyingArmy.Army.Count(s => s.IsAlive) + ")\n";
-                }
-                //retString += ("Eligible for Conscription: " + EligibleForConscription.Count() + '\n');
-                retString += ("Location of Lord and Army: " + LocationOfLordAndArmy.Name + '\n');
+                retString += ("Fighters: " + Army.Count(s => s.IsAlive) + '\n');
+                retString += ("1st Wave Defenders:" + Defenders.Count() + '\n');
+                retString += ("Population:" + Population.Count() + '\n');
                 retString += ("Noble Households:" + Households.Count(v => v.HouseholdClass == SocialClass.Noble) + '\n');
                 retString += ("Peasant Households:" + Households.Count(v => v.HouseholdClass == SocialClass.Peasant) + '\n');
-                retString += ("Native Population:" + Households.SelectMany(h => h.Members).Count() + '\n');
-                retString += ("Total Population:" + Population.Count() + '\n');
-                retString += ("Defenders:" + Defenders.Count() + '\n');
-                retString += ("Farmers: " + Farmers.Count() + '\n');
+                //retString += ("Occupying Armies: " + '\n');
+                //foreach (var occupyingArmy in OccupyingLordsAndArmies)
+                //{
+                //    retString += "\t" + occupyingArmy.Name + "(" + occupyingArmy.Army.Count(s => s.IsAlive) + ")\n";
+                //}
+                //retString += ("Eligible for Conscription: " + EligibleForConscription.Count() + '\n');
+                //retString += ("Location of Lord and Army: " + LocationOfLordAndArmy.Name + '\n');
+                //retString += ("Native Population:" + Households.SelectMany(h => h.Members).Count() + '\n');
+                //retString += ("Farmers: " + Farmers.Count() + '\n');
                 retString += ("Yeild: " + Yeild + '\n');
                 retString += ("Cost: " + Cost + '\n');
                 retString += ("Surplus: " + Surplus + '\n');
-                if (AssessedIncome.Count > 0)
+                if (AssessedIncomes.Count > 0)
                 {
-                    retString += ("Income: " + AssessedIncome.Last().Income.ToString("0.00") + '\n');
+                    retString += ("Income: " + AssessedIncomes.Last().Income.ToString("0.00") + '\n');
                 }
                 retString += ("Wealth: " + Wealth + '\n');
                 retString += ("------------------------" + '\n');
@@ -459,10 +320,6 @@ namespace GameOfHouses.Logic
             }
             settlerHouseholds.ForEach(household => household.Members.ForEach(member => { newVillage.World.AddPerson(member);}));
 
-            if (newLord.World != null && newLord.World.Player != null && newLord.House == newLord.World.Player.House) //&& playerLords.Count > 0 && playerLords.Last().GetCurrentHeirs().Contains(newLord))
-            {
-                Console.WriteLine("EXPANSION: " + newLord.FullNameAndAge + " FOUNDED " + newVillage.Name + " in " + newVillage.World.Year);
-            }
             newVillage.Vacant = false;
         }
         public Dictionary<Lordship,double> GetShortestAvailableDistanceToLordship(List<Lordship> lordshipsWithRightOfPassage)
@@ -530,16 +387,7 @@ namespace GameOfHouses.Logic
             //22      return dist[], prev[]
             return dist;//[targetLordship];
         }
-        public Lordship LocationOfLordAndArmy { get { return Lord.Location; } }
         public List<Lordship> OccupyingLordsAndArmies { get { return World.Lordships.Where(ls => ls.Lord !=null && ls.Lord.Location == this).ToList(); } }
-        public void AddOccupyingLordAndArmy(Lordship occupyingLordAndArmy)
-        {
-            if (!OccupyingLordsAndArmies.Contains(occupyingLordAndArmy))
-            {
-                occupyingLordAndArmy.Lord.MoveToLocation(this);
-                occupyingLordAndArmy.Army.ForEach(soldier => soldier.MoveToLocation(this));
-            }
-        }
         public List<Lordship> GetAllies()
         {
             //return everyone with the same sovreign
@@ -652,8 +500,26 @@ namespace GameOfHouses.Logic
             map += "\n";
             return map;
         }
-        //public Lordship DestinationOfLordshipAndArmy { get; set; }
-        //public DeploymentRequest DeploymentRequest { get; set; }
-        public int AttacksLedThisYear { get; set; }
+        //public int AttacksLedThisYear { get; set; }
+        public Lordship Flatten()
+        {
+            return new Lordship(new Random())
+            {
+                Id = Id,
+                AssessedIncomes = AssessedIncomes.Select(a => a.Flatten()).ToList(),
+                //AttacksLedThisYear = AttacksLedThisYear,
+                Cost = Cost,
+                FoundingYear = FoundingYear,
+                Households = Households.Select(h => h.Flatten()).ToList(),
+                Lords = Lords.Select(l => new Person(new Random()) { Id = l.Id }).ToList(),
+                MapX = MapX,
+                MapY = MapY,
+                Surplus = Surplus,
+                Vacant = Vacant,
+                Wealth = Wealth,
+                World = World,
+                Yeild = Yeild
+            };
+        }
     }
 }

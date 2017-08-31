@@ -18,16 +18,20 @@ namespace GameOfHouses.Logic
             Bethrothals = new List<Bethrothal>();
             EligibleNobles = new List<Person>();
             Proposals = new List<Proposal>();
-            Player = null;
             _rnd = rnd;
         }
         public Guid Id { get; set; }
-        public Player Player { get; set; }
+        public Game Game { get; set; }
         public List<Proposal> Proposals { get; set; }
         public int Year { get; set; }
         public List<Lordship> Lordships { get; set; }
         public List<Person> Population { get; set; }
         public List<House> NobleHouses { get; set; }
+        public List<Bethrothal> Bethrothals
+        {
+            get; set;
+        }
+        public List<Person> EligibleNobles { get; set; }
         public void AddLordship(Lordship lordship)
         {
             if (!Lordships.Contains(lordship))
@@ -93,6 +97,7 @@ namespace GameOfHouses.Logic
             livingPopulation.ForEach(person => person.IncrementYear());
             nobleHouses.ForEach(house => house.IncrementYear(_rnd));
             lordships.ForEach(lordship => lordship.IncrementYear());
+            Person.CreateMarriages(EligibleNobles.Where(n => !Proposals.SelectMany(p => p.RequestedPeople).Contains(n)).ToList(), _rnd);
         }
         public string GetMapAsString(House house = null, Lordship lordship = null, int? people = null)
         {
@@ -125,7 +130,7 @@ namespace GameOfHouses.Logic
                         {
                             map += lordshipOnMap.Defenders.Count.ToString("000");
                         }
-                        else if (lordshipOnMap.Lord!= null && !lordshipOnMap.Lord.House.Vacant && lordshipOnMap.Lord.House.GetSovreign().Lord.Household != null && lordshipOnMap == lordshipOnMap.Lord.House.GetSovreign().Lord.Household.Lordship)
+                        else if (lordshipOnMap.Lord!= null && !lordshipOnMap.Lord.House.Vacant && lordshipOnMap.Lord.House.GetSovreign().Lord!=null && lordshipOnMap.Lord.House.GetSovreign().Lord.Household != null && lordshipOnMap == lordshipOnMap.Lord.House.GetSovreign().Lord.Household.Lordship)
                         {
                             map += "*" + lordshipOnMap.Lords.Last().House.GetSovreign().Symbol + "*";
                         } else
@@ -164,10 +169,6 @@ namespace GameOfHouses.Logic
             //retString += ("------------------------") + "\n";
             return retString;
         }
-        public List<Bethrothal> Bethrothals
-        {
-            get; set;
-        }
         public Bethrothal CreateBethrothal(Person headOfHouseoldToBe, Person spouseToBe, int year, bool echo = false)
         {
             //remove any existing bethrothals 
@@ -189,12 +190,12 @@ namespace GameOfHouses.Logic
             //{
 
             var news = "BETROTHAL: " + bethrothal.HeadOfHouseholdToBe.FullNameAndAge + " was BETROTHED to " + bethrothal.SpouseToBe.FullNameAndAge + " in " + year +"\n";
-            if (headOfHouseoldToBe.House.Player != null)
+            if (headOfHouseoldToBe.House.Player != null && (headOfHouseoldToBe.IsHouseHeir() || headOfHouseoldToBe.IsHouseLord()))
             {
                 var world = headOfHouseoldToBe.House.World;
                 headOfHouseoldToBe.House.RecordHistory(news);
             }
-            if (spouseToBe.House.Player != null)
+            if (spouseToBe.House.Player != null && (spouseToBe.IsHouseHeir() || spouseToBe.IsHouseLord()))
             {
                 var world = spouseToBe.House.World;
                 spouseToBe.House.RecordHistory(news);
@@ -214,7 +215,21 @@ namespace GameOfHouses.Logic
             bethrothal.SpouseToBe = null;
             Bethrothals.Remove(bethrothal);
         }
-        public List<Person> EligibleNobles { get; set; }
+        public World Flatten()
+        {
+            return new World(_rnd)
+            {
+                Id = this.Id,
+                Bethrothals = Bethrothals.Select(b => b.Flatten()).ToList(),
+                EligibleNobles = EligibleNobles.Select(p => new Person(_rnd) { Id = p.Id }).ToList(),
+                Game = new Game {Id = Game.Id},
+                Lordships = Lordships.Select(l => l.Flatten()).ToList(),
+                NobleHouses = NobleHouses.Select(h => h.Flatten()).ToList(),
+                Population = Population.Select(p => p.Flatten()).ToList(),
+                Proposals = Proposals.Select(p => p.Flatten()).ToList(),
+                Year = Year
+            };
+        }
     }
 
 }

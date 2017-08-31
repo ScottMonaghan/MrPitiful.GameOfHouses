@@ -21,7 +21,19 @@ namespace GameOfHouses.Web
             BundleConfig.RegisterBundles(BundleTable.Bundles);
             //create in-memory placeholder for game for now
             var rnd = new Random();
-            Application["Game"] = InitializeWorld(new World(rnd), rnd, new Player());
+            Application["Game"] = InitializeWorld(new World(rnd), rnd);
+            var game = (Game)Application["Game"];
+            //game.NewPlayer("Scott", "Monaghan", Sex.Male, People.Norvik, PlayerType.Live, rnd);
+            //game.NewPlayer("Emily", "Andersson", Sex.Female, People.Norvik, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Michael", "Corley", Sex.Male, People.Norvik, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Joel", "LeFave", Sex.Male, People.Norvik, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Rachel", "Mulready", Sex.Female, People.Norvik, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Tim", "Randall", Sex.Male, People.Sulthaen, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Tom", "Brady", Sex.Male, People.Sulthaen, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Gisele", "Bundchen", Sex.Female, People.Sulthaen, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Robert", "Kraft", Sex.Male, People.Sulthaen, PlayerType.AIAggressive, rnd);
+            //game.NewPlayer("Susan", "Mars", Sex.Female, People.Sulthaen, PlayerType.AIAggressive, rnd);
+
         }
     }
 }

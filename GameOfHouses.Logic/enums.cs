@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace GameOfHouses.Logic
 {
+    public enum ProposalType
+    {
+        Proposal = 0,
+        Invitation = 1
+    }
     public enum Sex
     {
         Female = 0,

@@ -11,5 +11,15 @@ namespace GameOfHouses.Logic
         public Guid Id { get; set; }
         public int Year { get; set; }
         public double Income { get; set; }
+
+        public AssessedIncome Flatten()
+        {
+            return new AssessedIncome()
+            {
+                Id = Id,
+                Year = Year,
+                Income = Income
+            };
+        }
     }
 }

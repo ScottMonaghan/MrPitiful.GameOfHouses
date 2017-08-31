@@ -13,5 +13,16 @@ namespace GameOfHouses.Logic
         public Person SpouseToBe { get; set; }
         public World world { get; set; }
         public int Year { get; set; }
+        public Bethrothal Flatten()
+        {
+            return new Bethrothal()
+            {
+                Id = Id,
+                HeadOfHouseholdToBe = new Person(new Random()) { Id = HeadOfHouseholdToBe.Id },
+                SpouseToBe = new Person(new Random()) { Id = SpouseToBe.Id },
+                world = new World(new Random()) { Id = world.Id },
+                Year = Year
+            };
+        }
     }
 }

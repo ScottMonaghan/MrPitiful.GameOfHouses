@@ -28,7 +28,7 @@ namespace GameOfHouses.Web.Controllers
             {
                 h.Id = house.Id;
                 h.Name = house.Name;
-                h.CrestNumber = house.World.NobleHouses.IndexOf(house).ToString("0000");
+                //h.CrestNumber = house.World.NobleHouses.IndexOf(house).ToString("0000");
                 h.Lord = GetFullNameAndAgeWithLinks(house.Lord);
                 h.Allegience = (house.Allegience != null) ? house.Allegience.Name : "Sovreign";
                 h.Lordships = house.Lordships.OrderBy(name => name).Select(l => new LordshipDTO() { Id = l.Id, Name = l.Name }).ToList();
@@ -52,7 +52,7 @@ namespace GameOfHouses.Web.Controllers
                 {
                     Id = house.Id,
                     Name = house.Name,
-                    CrestNumber = house.World.NobleHouses.IndexOf(house).ToString("0000")
+                    //CrestNumber = house.World.NobleHouses.IndexOf(house).ToString("0000")
                 };
             }
             else

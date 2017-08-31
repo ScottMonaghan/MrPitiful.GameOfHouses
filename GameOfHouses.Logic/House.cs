@@ -14,12 +14,12 @@ namespace GameOfHouses.Logic
             Lords = new List<Person>();
             Members = new List<Person>();
             //Soldiers = new List<Person>();
-            AvailableUnmarriedMembers = new List<Person>();
+            //AvailableUnmarriedMembers = new List<Person>();
             Vassles = new List<House>();
-            AssessedIncome = new List<AssessedIncome>();
+            AssessedIncomes = new List<AssessedIncome>();
             Recruitments = 0;
             Player = null;
-            DeploymentRequests = new List<DeploymentRequest>();
+            //DeploymentRequests = new List<DeploymentRequest>();
             History = new Dictionary<int, string>();
         }
         //public List<Person> Soldiers { get; set; }
@@ -71,8 +71,14 @@ namespace GameOfHouses.Logic
         {
             get
             {
-                return World.Lordships.Where(l => l.Lord!=null && l.Lord.House == this).ToList();
-            }
+                if (World != null)
+                {
+                    return World.Lordships.Where(l => l.Lord != null && l.Lord.House == this).ToList();
+                } else
+                {
+                    return new List<Lordship>();
+                }
+           }
         }
         public House Allegience { get; set; }
         public List<House> Vassles { get; set; }
@@ -96,7 +102,7 @@ namespace GameOfHouses.Logic
             }
         }
         public List<Person> Members { get; set; }
-        public List<Person> AvailableUnmarriedMembers { get; set; }
+        //public List<Person> AvailableUnmarriedMembers { get; set; }
         public void AddMember(Person newMember)
         {
             if (!Members.Contains(newMember))
@@ -167,18 +173,10 @@ namespace GameOfHouses.Logic
                     if (heir != null)
                     {
                         AddLord(heir);
-                        //echo = echo || heir.House.Player.PlayerType == PlayerType.Live;
-                        //if (echo)
-                        //{
                         if (Player != null)
                         {
                             RecordHistory(heir.FullNameAndAge + " INHERITED the Lordship of House " + Name + " from " + incumbentLord.FullNameAndAge + " in " + World.Year + "\n");
                         }
-                        //set up additional houses for incumbant lords other children
-                        //var lordsOtherChildren = incumbentLord.Children.Where(c => c != heir || !heir.Ancestors.Contains(c));
-                        
-
-                            //}
                     }
                     else
                     {
@@ -246,8 +244,9 @@ namespace GameOfHouses.Logic
             {
                 newLord.HouseLordships.Add(this);
             }
-            if (newLord.Household != null && newLord != newLord.Household.HeadofHousehold)
+            if (newLord.Household == null || newLord != newLord.Household.HeadofHousehold)
             {
+                var oldHousehold = newLord.Household;
                 var newHousehold = new Household()
                 {
                     HeadofHousehold = newLord
@@ -267,11 +266,18 @@ namespace GameOfHouses.Logic
                 {
                     newHousehold.AddMember(child);
                 }
+                if (oldHousehold != null && oldHousehold.Lordship !=null)
+                {
+                    oldHousehold.Lordship.AddHousehold(newHousehold); 
+                } else if (Lordships.Count() > 0)
+                {
+                    Lordships[0].AddHousehold(newHousehold);
+                }
             }
-            if (Seat != null && (newLord.Household.Lordship == null || newLord.Household.Lordship != Seat))
-            {
-                Seat.AddHousehold(newLord.Household);
-            }
+            //if (Seat != null && (newLord.Household.Lordship == null || newLord.Household.Lordship != Seat))
+            //{
+            //    Seat.AddHousehold(newLord.Household);
+            //}
             Lords.Add(newLord);
         }
         public List<House> GetAllSubVassles()
@@ -294,7 +300,7 @@ namespace GameOfHouses.Logic
             retString += ("Total Peasant Households: " + World.Lordships.Where(ls => !ls.Vacant && ls.Lords.Last().House == this).Sum(x => x.Households.Count(y => y.HeadofHousehold.Class == SocialClass.Peasant))) + "\n";
             retString += ("Wealth: " + Wealth.ToString("0.00") + '\n');
             var lastYear = World.Year - 1;
-            var lastYearsIncome = AssessedIncome.FirstOrDefault(x => x.Year == lastYear);
+            var lastYearsIncome = AssessedIncomes.FirstOrDefault(x => x.Year == lastYear);
             if (lastYearsIncome != null)
             {
                 retString += lastYear + " Income: " + lastYearsIncome.Income.ToString("0.00") + "\n";
@@ -332,8 +338,6 @@ namespace GameOfHouses.Logic
                     vassle.Allegience.RemoveVassle(vassle);
                 }
                 Vassles.Add(vassle);
-                //send all vassle armies home
-                //vassle.Lordships.ForEach(l => l.AddOccupyingLordAndArmy(l));
                 vassle.Allegience = this;
                 
             }
@@ -436,7 +440,7 @@ namespace GameOfHouses.Logic
         //    //add assessment for taxes
         //    AssessedIncome.Add(new AssessedIncome() { Year = World.Year, Income = houseIncome });
         //}
-        public List<AssessedIncome> AssessedIncome { get; set; }
+        public List<AssessedIncome> AssessedIncomes { get; set; }
         public List<Person> GetPotentialSettlerLords()
         {
             var house = this;
@@ -449,7 +453,7 @@ namespace GameOfHouses.Logic
             return potentialSettlerLords;
 
         }
-        public List<DeploymentRequest> DeploymentRequests { get; set; }
+        //public List<DeploymentRequest> DeploymentRequests { get; set; }
         public List<Person> FightersAvailable {
             get {
                 return Lordships.SelectMany(l => l.Army).Union(GetAllSubVassles().SelectMany(v => v.Lordships.SelectMany(l => l.Army))).ToList();
@@ -467,5 +471,32 @@ namespace GameOfHouses.Logic
                             ).OrderBy(m => m.Name).ToList();
             }
         } 
+        public List<House> GetAlliedHouses()
+        {
+            return World.NobleHouses.Where(h => h.GetSovreign() == GetSovreign()).ToList();
+        }
+        public List<Lordship>GetPassibleLordships()
+        {
+            return Lordships.Union(GetAlliedHouses().SelectMany(h => h.Lordships)).ToList();
+        }
+        public House Flatten()
+        {
+            return new House()
+            {
+                Allegience = (Allegience != null) ? new House() { Id = Allegience.Id } : null,
+                AssessedIncomes = AssessedIncomes.Select(a => a.Flatten()).ToList(),
+                History = History,
+                Lords = Lords.Select(l => new Person(new Random()) {Id = l.Id}).ToList(),
+                Members = Members.Select(m => new Person(new Random()) { Id = m.Id }).ToList(),
+                Name = Name,
+                Player = new Player() { Id = Player.Id},
+                Symbol = Symbol,
+                Vacant = Vacant,
+                Vassles = Vassles.Select(v=>new House() {Id = v.Id }).ToList(),
+                Wealth = Wealth,
+                World = new World(new Random()) { Id = World.Id} 
+            };
+        }
+        
     }
 }
